@@ -82,6 +82,9 @@ class Recipe:
         out_arco = ArcoSet.from_str(out_str.strip())
         return cls(in_arco, out_arco)
 
+    def __str__(self) -> str:
+        return f"{self._in.txt()}->{self._out.txt()}"
+
 
 RECIPES = [
     # folding
@@ -243,12 +246,58 @@ def find_specific_cycle(input: ArcoSet, output: ArcoSet, limit: int):
                     print()
 
 
+def test_loop(cube: Recipe, current: ArcoSet) -> ArcoSet | None:
+    current = cube.apply(current)
+    target = ArcoSet.from_str("LXZ")
+
+    limit = 30
+    cache: PathCache = {}
+    shortest_len = 999
+    shortest_path: list[ArcoSet] = []
+
+    if (p := find_path(current, target, limit, cache)) is not None:
+        path_length, path = p
+        if path_length < shortest_len:
+            shortest_len = path_length
+            shortest_path = path
+            print(f">>>>> Found shorter path | Path: {format_path(shortest_path)}")
+
+    if len(shortest_path) > 0:
+        print(f"continuing path | Path: {format_path(shortest_path)}")
+        current = shortest_path[-1]
+        return current
+    else:
+        return None
+
+
 def main():
-    find_specific_cycle(
-        input=ArcoSet.from_str("GOP"),
-        output=ArcoSet.from_str("LXZ"),
-        limit=30,
-    )
+    # find_specific_cycle(
+    #     input=ArcoSet.from_str("GOP"),
+    #     output=ArcoSet.from_str("LXZ"),
+    #     limit=30,
+    # )
+
+    cube1 = Recipe.from_str("LXZ -> PET")
+    cube2 = Recipe.from_str("LXZ -> POG")
+    current = ArcoSet.from_str("LXZOX")
+    for _i in range(1, 30):
+
+        extra = current.remove(ArcoSet.from_str("LXZ"))
+        print(f"{current=} , {extra=}")
+
+        next1 = test_loop(cube1, current)
+        if next1 is not None:
+            current = next1
+            print(f"recipe: {cube1}")
+            continue
+
+        next2 = test_loop(cube2, current)
+        if next2 is not None:
+            current = next2
+            print(f"recipe: {cube2}")
+        else:
+            print("stuck")
+            break
 
 
 if __name__ == "__main__":
