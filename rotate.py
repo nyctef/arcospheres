@@ -213,10 +213,10 @@ def find_cycles():
                     print(state)
 
 
-def find_specific_cycle():
-    input = ArcoSet.from_str("G")
-    output = ArcoSet.from_str("O")
-    limit = 10
+def find_specific_cycle(input: ArcoSet, output: ArcoSet, limit: int):
+    # input = ArcoSet.from_str("G")
+    # output = ArcoSet.from_str("O")
+    # limit = 10
 
     shortest_len = 999
     shortest_path: list[ArcoSet] = []
@@ -244,7 +244,11 @@ def find_specific_cycle():
 
 
 def main():
-    find_specific_cycle()
+    find_specific_cycle(
+        input=ArcoSet.from_str("T"),
+        output=ArcoSet.from_str("E"),
+        limit=10,
+    )
 
 
 if __name__ == "__main__":
