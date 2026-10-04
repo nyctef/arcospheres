@@ -1,5 +1,5 @@
-from collections import defaultdict
-from itertools import product
+from collections import defaultdict, deque
+from itertools import combinations_with_replacement
 
 
 class ArcoSet:
@@ -116,7 +116,7 @@ def find_path(
     # print()
     # print()
     # print(f"Starting test with start: {start} and target: {target}")
-    stack: list[tuple[ArcoSet, int, list[ArcoSet]]] = [(start, 0, [start])]
+    queue: deque[tuple[ArcoSet, int, list[ArcoSet]]] = deque([(start, 0, [])])
     seen: set[ArcoSet] = set()
     global cache_hit_count, cache_add_count
 
@@ -125,14 +125,14 @@ def find_path(
     ) -> None:
         global log_count
         global cache_hit_count, cache_add_count
-        if force or log_count % 100_000 == 0:
+        if force or log_count % 10_000_000 == 0:
             print(
-                f"{current=} {steps=} {len(cache)=} {cache_hit_count=} {cache_add_count=} {log_count=}"
+                f"{current=} {steps=} {len(cache)=} {cache_hit_count=} {cache_add_count=} {log_count=} {len(seen)=}"
             )
         log_count += 1
 
-    while stack:
-        current, steps, path = stack.pop()
+    while queue:
+        current, steps, path = queue.popleft()
         log(current, steps, path, force=False)
         if steps > limit:
             # print(f"XXXXX Exceeded {limit} steps at state: {current}")
@@ -141,22 +141,22 @@ def find_path(
 
         path_to_current = path + [current]
 
-        if (
-            r := cache.get((current, target), missing)
-        ) is not None and r is not missing:
-            cache_hit_count += 1
-            (
-                remaining_count,  # pyright: ignore[reportUnknownVariableType]
-                remaining_path,  # pyright: ignore[reportUnknownVariableType]
-            ) = r  # pyright: ignore[reportGeneralTypeIssues, reportUnknownVariableType]
-            # print(f"{steps=} {remaining_count=} {path=} {remaining_path=}")
-            return (
-                steps + remaining_count,
-                path + remaining_path,
-            )  # pyright: ignore[reportUnknownVariableType]
+        # if (
+        #     r := cache.get((current, target), missing)
+        # ) is not None and r is not missing:
+        #     cache_hit_count += 1
+        #     (
+        #         remaining_count,  # pyright: ignore[reportUnknownVariableType]
+        #         remaining_path,  # pyright: ignore[reportUnknownVariableType]
+        #     ) = r  # pyright: ignore[reportGeneralTypeIssues, reportUnknownVariableType]
+        #     # print(f"{steps=} {remaining_count=} {path=} {remaining_path=}")
+        #     return (
+        #         steps + remaining_count,
+        #         path + remaining_path,
+        #     )  # pyright: ignore[reportUnknownVariableType]
 
-        cache[(start, current)] = (steps, path_to_current)
-        cache_add_count += 1
+        # cache[(start, current)] = (steps, path_to_current)
+        # cache_add_count += 1
 
         if current.contains(target):
             # print(f">>>>> Reached target in {steps} steps")
@@ -166,7 +166,7 @@ def find_path(
                 next_state = (recipe.apply(current), steps + 1, path_to_current)
                 if next_state[0] not in seen:
                     seen.add(next_state[0])
-                    stack.append(next_state)
+                    queue.append(next_state)
     # print(f"XXXXX Failed to reach target from start: {start}")
     # log(start, limit, [], force=True)
     cache[(start, target)] = None
@@ -180,7 +180,7 @@ def find_cycle(start: ArcoSet, limit: int) -> tuple[int, list[ArcoSet]] | None:
     while stack:
         current, steps, path = stack.pop()
         if steps > limit:
-            return None
+            continue
         if steps > 0 and current == start:
             return steps, path
         for recipe in RECIPES:
@@ -199,7 +199,7 @@ def find_cycles():
 
     for c in range(3, 10):
         print(f"Checking cycles for count {c} spheres with limit {limit}")
-        for start_c in product("LXEPZTGO", repeat=c):
+        for start_c in combinations_with_replacement("LXEPZTGO", c):
             start_str = "".join(start_c)
             start = ArcoSet.from_str(start_str)
             cycle = find_cycle(start, limit)
@@ -226,7 +226,7 @@ def find_specific_cycle(input: ArcoSet, output: ArcoSet, limit: int):
             f"Checking paths for extras count {extras_count} spheres with limit {limit}"
         )
         cache: PathCache = {}
-        for extras_c in product("LXEPZTGO", repeat=extras_count):
+        for extras_c in combinations_with_replacement("LXEPZTGO", extras_count):
             extras_str = "".join(extras_c)
             extras = ArcoSet.from_str(extras_str)
             start = input.add(extras)
