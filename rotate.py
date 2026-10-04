@@ -1,4 +1,5 @@
 from collections import defaultdict
+from itertools import product
 
 
 class ArcoSet:
@@ -34,19 +35,33 @@ class ArcoSet:
             new_arcs[char] = new_arcs.get(char, 0) + count
         return ArcoSet(new_arcs)
 
-    def __txt(self) -> str:
+    def txt(self) -> str:
         strs: list[str] = []
         for char, count in self._arcs.items():
-            strs.append(char * count)
+            for _ in range(count):
+                strs.append(char)
+        strs.sort()
         return "".join(strs)
 
     def __repr__(self) -> str:
-        txt = self.__txt()
+        txt = self.txt()
         return f'ArcoSet.from_str("{txt}")'
 
     def __str__(self) -> str:
-        txt = self.__txt()
+        txt = self.txt()
         return f"AS({txt})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ArcoSet):
+            return False
+        return self._arcs == other._arcs
+
+    def __hash__(self) -> int:
+        return hash(frozenset(self._arcs.items()))
+
+
+def format_path(path: list[ArcoSet]) -> str:
+    return " -> ".join(str(p.txt()) for p in path)
 
 
 class Recipe:
@@ -81,42 +96,155 @@ RECIPES = [
     # inversion
     Recipe.from_str("LXEP -> ZTGO"),
     Recipe.from_str("ZTGO -> LXEP"),
+    # tesseract
+    Recipe.from_str("LXZ -> TEP"),
+    Recipe.from_str("LXZ -> GOP"),
 ]
 
+PathCache = dict[tuple[ArcoSet, ArcoSet], tuple[int, list[ArcoSet]] | None]
 
-def test_start(start: ArcoSet, target: ArcoSet):
-    print()
-    print()
-    print(f"Starting test with start: {start} and target: {target}")
-    start_state = (start, 0)
-    stack: list[tuple[ArcoSet, int]] = [start_state]
+log_count = 0
+cache_hit_count = 0
+cache_add_count = 0
+
+missing = object()
+
+
+def find_path(
+    start: ArcoSet, target: ArcoSet, limit: int, cache: PathCache
+) -> tuple[int, list[ArcoSet]] | None:
+    # print()
+    # print()
+    # print(f"Starting test with start: {start} and target: {target}")
+    stack: list[tuple[ArcoSet, int, list[ArcoSet]]] = [(start, 0, [start])]
     seen: set[ArcoSet] = set()
+    global cache_hit_count, cache_add_count
+
+    def log(
+        current: ArcoSet, steps: int, path: list[ArcoSet], force: bool = False
+    ) -> None:
+        global log_count
+        global cache_hit_count, cache_add_count
+        if force or log_count % 100_000 == 0:
+            print(
+                f"{current=} {steps=} {len(cache)=} {cache_hit_count=} {cache_add_count=} {log_count=}"
+            )
+        log_count += 1
 
     while stack:
-        current, steps = stack.pop()
-        if steps > 10:
-            print(f"XXXXX Exceeded 10 steps at state: {current}")
-            return
-        print(current, steps)
+        current, steps, path = stack.pop()
+        log(current, steps, path, force=False)
+        if steps > limit:
+            # print(f"XXXXX Exceeded {limit} steps at state: {current}")
+            continue
+        # print(current, steps)
+
+        path_to_current = path + [current]
+
+        if (
+            r := cache.get((current, target), missing)
+        ) is not None and r is not missing:
+            cache_hit_count += 1
+            (
+                remaining_count,  # pyright: ignore[reportUnknownVariableType]
+                remaining_path,  # pyright: ignore[reportUnknownVariableType]
+            ) = r  # pyright: ignore[reportGeneralTypeIssues, reportUnknownVariableType]
+            # print(f"{steps=} {remaining_count=} {path=} {remaining_path=}")
+            return (
+                steps + remaining_count,
+                path + remaining_path,
+            )  # pyright: ignore[reportUnknownVariableType]
+
+        cache[(start, current)] = (steps, path_to_current)
+        cache_add_count += 1
+
         if current.contains(target):
-            print(f">>>>> Reached target in {steps} steps")
-            return
+            # print(f">>>>> Reached target in {steps} steps")
+            return steps, path_to_current
         for recipe in RECIPES:
             if recipe.can_apply(current):
-                next_state = (recipe.apply(current), steps + 1)
+                next_state = (recipe.apply(current), steps + 1, path_to_current)
                 if next_state[0] not in seen:
                     seen.add(next_state[0])
                     stack.append(next_state)
-    print(f"XXXXX Failed to reach target from start: {start}")
+    # print(f"XXXXX Failed to reach target from start: {start}")
+    # log(start, limit, [], force=True)
+    cache[(start, target)] = None
+    return None
+
+
+def find_cycle(start: ArcoSet, limit: int) -> tuple[int, list[ArcoSet]] | None:
+    stack: list[tuple[ArcoSet, int, list[ArcoSet]]] = [(start, 0, [])]
+    seen: set[ArcoSet] = set()
+
+    while stack:
+        current, steps, path = stack.pop()
+        if steps > limit:
+            return None
+        if steps > 0 and current == start:
+            return steps, path
+        for recipe in RECIPES:
+            if recipe.can_apply(current):
+                next_state = (recipe.apply(current), steps + 1, path + [current])
+                if next_state[0] not in seen:
+                    seen.add(next_state[0])
+                    stack.append(next_state)
+    return None
+
+
+def find_cycles():
+    # start = ArcoSet.from_str("GOP")
+    target = ArcoSet.from_str("LXZ")
+    limit = 10
+
+    for c in range(3, 10):
+        print(f"Checking cycles for count {c} spheres with limit {limit}")
+        for start_c in product("LXEPZTGO", repeat=c):
+            start_str = "".join(start_c)
+            start = ArcoSet.from_str(start_str)
+            cycle = find_cycle(start, limit)
+            if cycle is not None:
+                cycle_length, path = cycle
+                if not any(state.contains(target) for state in path):
+                    continue
+                print(f"Found cycle of length {cycle_length} for start: {start_str}")
+                print("Path:")
+                for state in path:
+                    print(state)
+
+
+def find_specific_cycle():
+    input = ArcoSet.from_str("G")
+    output = ArcoSet.from_str("O")
+    limit = 10
+
+    shortest_len = 999
+    shortest_path: list[ArcoSet] = []
+
+    for extras_count in range(1, 10):
+        print(
+            f"Checking paths for extras count {extras_count} spheres with limit {limit}"
+        )
+        cache: PathCache = {}
+        for extras_c in product("LXEPZTGO", repeat=extras_count):
+            extras_str = "".join(extras_c)
+            extras = ArcoSet.from_str(extras_str)
+            start = input.add(extras)
+            target = output.add(extras)
+            if (p := find_path(start, target, limit, cache)) is not None:
+                path_length, path = p
+                if path_length < shortest_len:
+                    shortest_len = path_length
+                    shortest_path = path
+                    print()
+                    print(
+                        f">>>>> Found shorter path for extras: {extras_str} | Path: {format_path(shortest_path)}"
+                    )
+                    print()
 
 
 def main():
-    start = ArcoSet.from_str("TEP")
-    target = ArcoSet.from_str("LXZ")
-
-    for extra in "LXEPZTGO":
-        s = start.add(ArcoSet.from_str(extra))
-        test_start(s, target)
+    find_specific_cycle()
 
 
 if __name__ == "__main__":
