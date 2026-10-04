@@ -97,8 +97,8 @@ RECIPES = [
     Recipe.from_str("LXEP -> ZTGO"),
     Recipe.from_str("ZTGO -> LXEP"),
     # tesseract
-    Recipe.from_str("LXZ -> TEP"),
-    Recipe.from_str("LXZ -> GOP"),
+    # Recipe.from_str("LXZ -> TEP"),
+    # Recipe.from_str("LXZ -> GOP"),
 ]
 
 PathCache = dict[tuple[ArcoSet, ArcoSet], tuple[int, list[ArcoSet]] | None]
@@ -245,9 +245,9 @@ def find_specific_cycle(input: ArcoSet, output: ArcoSet, limit: int):
 
 def main():
     find_specific_cycle(
-        input=ArcoSet.from_str("T"),
-        output=ArcoSet.from_str("E"),
-        limit=10,
+        input=ArcoSet.from_str("GOP"),
+        output=ArcoSet.from_str("LXZ"),
+        limit=30,
     )
 
 
