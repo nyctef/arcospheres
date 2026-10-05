@@ -499,9 +499,41 @@ def build_combinators(
     return result if not unhandled else None
 
 
+CUBE_INPUT = ArcoSet.from_str("LXZ")
+
+
+def build_cube_policy(
+    options: dict[ArcoSet, list[Recipe]], cube_ready: set[ArcoSet]
+) -> list[str]:
+    forbidden = [
+        st for st in options if st.contains(CUBE_INPUT) and st not in cube_ready
+    ]
+    texts: set[str] = set()
+    for st in cube_ready:
+        extras_txt = st.remove(CUBE_INPUT).txt()
+        for size in range(len(extras_txt) + 1):
+            texts.update("".join(c) for c in combinations(extras_txt, size))
+
+    def matches(st: ArcoSet, txt: str) -> bool:
+        return st.contains(CUBE_INPUT.add(ArcoSet.from_str(txt)))
+
+    valid = sorted(t for t in texts if not any(matches(f, t) for f in forbidden))
+    uncovered = set(cube_ready)
+    clauses: list[str] = []
+    while uncovered:
+        best = max(
+            valid,
+            key=lambda t: (sum(1 for st in uncovered if matches(st, t)), -len(t), t),
+        )
+        clauses.append(best)
+        uncovered = {st for st in uncovered if not matches(st, best)}
+    return clauses
+
+
 def print_combinators(
     options: dict[ArcoSet, list[Recipe]],
-) -> tuple[list[int], list[list[str]]]:
+    cube_ready: set[ArcoSet],
+) -> tuple[list[int], list[list[str]], list[str]]:
     import random
 
     states = list(options)
@@ -570,10 +602,16 @@ def print_combinators(
 
     built = build_combinators(best_order, allowed, candidates, all_states)
     assert built is not None
+    cube_clauses = build_cube_policy(options, cube_ready)
     print(
         f"\nPriority order with {best_cost[0]} clauses total, "
-        f"{best_cost[1]} extra-sphere literals ({len(states)} states):"
+        f"{best_cost[1]} extra-sphere literals ({len(states)} states), "
+        f"plus {len(cube_clauses)} clauses for when to cube:"
     )
+    cube_text = " OR ".join(
+        format_combinator_part(c, CUBE_INPUT.txt()) for c in sorted(cube_clauses)
+    )
+    print(f"  0. CUBE LXZ [needs LXZ]: {cube_text}")
     for pos, ri in enumerate(best_order):
         recipe = RECIPES[ri]
         if not built[ri]:
@@ -583,7 +621,7 @@ def print_combinators(
             format_combinator_part(c, recipe._in.txt()) for c in sorted(built[ri])
         )
         print(f"  {pos + 1}. {recipe} [needs {recipe._in.txt()}]: {clauses}")
-    return best_order, built
+    return best_order, built, cube_clauses
 
 
 def format_combinator_part(c: str, req: str):
@@ -598,7 +636,10 @@ def format_combinator_part(c: str, req: str):
 
 
 def simulate_combinators(
-    strategy: Graph, order: list[int], built: list[list[str]]
+    strategy: Graph,
+    order: list[int],
+    built: list[list[str]],
+    cube_clauses: list[str],
 ) -> None:
     cube_ready = {n[1] for n in strategy if n[0] == "chance"}
     cubes = [Recipe.from_str("LXZ -> PET"), Recipe.from_str("LXZ -> POG")]
@@ -607,6 +648,11 @@ def simulate_combinators(
         for ri in order
         if built[ri]
     ]
+
+    cube_patterns = [CUBE_INPUT.add(ArcoSet.from_str(c)) for c in cube_clauses]
+
+    def should_cube(state: ArcoSet) -> bool:
+        return any(state.contains(p) for p in cube_patterns)
 
     def next_fold(state: ArcoSet) -> Recipe | None:
         for recipe, patterns in rules:
@@ -621,7 +667,15 @@ def simulate_combinators(
             state = cube.apply(start)
             visited = {state}
             folds = 0
-            while state not in cube_ready:
+            while True:
+                if should_cube(state):
+                    assert (
+                        state in cube_ready
+                    ), f"EARLY CUBE: cube rule fires at off-plan {state} (from {start})"
+                    break
+                assert (
+                    state not in cube_ready
+                ), f"MISSED CUBE: cube rule silent at cube-ready {state} (from {start})"
                 recipe = next_fold(state)
                 assert (
                     recipe is not None
@@ -634,7 +688,7 @@ def simulate_combinators(
             max_folds = max(max_folds, folds)
     print(
         f"Simulation OK: {len(cube_ready)} cube-ready states x 2 outcomes = {runs} runs, "
-        f"all return to a cube-ready state (max {max_folds} folds)"
+        f"all cube exactly at cube-ready states (max {max_folds} folds)"
     )
 
 
@@ -773,8 +827,11 @@ def main():
                     f"  {node[0]}:{node[1].txt()} --[{label}]--> {target_node[0]}:{target_node[1].txt()}"
                 )
         print_graph(labelled, f"strategy_{i}.dot")
-        order, built = print_combinators(build_options(strategy))
-        simulate_combinators(strategy, order, built)
+        cube_ready = {n[1] for n in strategy if n[0] == "chance"}
+        order, built, cube_clauses = print_combinators(
+            build_options(strategy), cube_ready
+        )
+        simulate_combinators(strategy, order, built, cube_clauses)
 
 
 if __name__ == "__main__":
