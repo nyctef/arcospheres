@@ -2,6 +2,7 @@ from collections import defaultdict, deque
 from itertools import combinations_with_replacement
 from pathlib import Path
 from tarjan import tarjan_scc
+from mdp import prune_mec
 
 
 class ArcoSet:
@@ -270,6 +271,22 @@ def find_short_path(current: ArcoSet, target: ArcoSet) -> tuple[ArcoSet, int] | 
         return None
 
 
+Graph = dict[ArcoSet, dict[ArcoSet, str | None]]
+
+
+def print_graph(graph: Graph):
+    out_file = Path(__file__).parent / "scratch" / "graph_output.txt"
+    with out_file.open("w") as f:
+        f.write("digraph G {\n")
+        f.write('graph [overlap=scale, sep="+0.5"]; edge [len=1.0];\n')
+        for start, edges in graph.items():
+            for end, length in edges.items():
+                if length is None:
+                    continue
+                f.write(f'    "{start.txt()}" -> "{end.txt()}" [label="{length}"];\n')
+        f.write("}\n")
+
+
 def main():
     # find_specific_cycle(
     #     input=ArcoSet.from_str("GOP"),
@@ -282,14 +299,12 @@ def main():
     # -> are there loops that work for both?
 
     # source -> target -> path length
-    graph: dict[ArcoSet, dict[ArcoSet, str | None]] = defaultdict(
-        lambda: defaultdict(lambda: None)
-    )
+    graph: Graph = defaultdict(lambda: defaultdict(lambda: None))
 
     cube1 = Recipe.from_str("LXZ -> PET")
     cube2 = Recipe.from_str("LXZ -> POG")
     target = ArcoSet.from_str("LXZ")
-    for extras_c in combinations_with_replacement("LXEPZTGO", 3):
+    for extras_c in combinations_with_replacement("LXEPZTGO", 15):
 
         extras_str = "".join(extras_c)
         # print(f"start: {extras_str}")
@@ -311,18 +326,11 @@ def main():
             nn, length = next2
             graph[after2][nn] = str(length)
 
-    print([scc for scc in tarjan_scc(graph) if len(scc) > 1])
+    sccs = [scc for scc in tarjan_scc(graph) if len(scc) > 1]
+    pruned_sccs = [prune_mec(scc, graph) for scc in sccs]
+    print(pruned_sccs)
 
-    out_file = Path(__file__).parent / "scratch" / "graph_output.txt"
-    with out_file.open("w") as f:
-        f.write("digraph G {\n")
-        f.write('graph [overlap=scale, sep="+0.5"]; edge [len=1.0];\n')
-        for start, edges in graph.items():
-            for end, length in edges.items():
-                if length is None:
-                    continue
-                f.write(f'    "{start.txt()}" -> "{end.txt()}" [label="{length}"];\n')
-        f.write("}\n")
+    print_graph(graph)
 
 
 if __name__ == "__main__":
