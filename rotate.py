@@ -270,8 +270,8 @@ def reachable_with_target(
     return {s: d for s, d in dist.items() if s.contains(target)}
 
 
-# Nodes are either ("chance", state) - a state with LXZ about to go in the tesseract -
-# or ("choice", state) - a state just after the tesseract, where we choose how to fold.
+# Nodes are either ("chance", state) (a state with LXZ about to go in the tesseract)
+# or ("choice", state)
 Node = tuple[str, ArcoSet]
 Graph = dict[Node, dict[Node, str]]
 
@@ -363,42 +363,268 @@ def build_policy(strategy: Graph) -> dict[ArcoSet, Recipe]:
     return policy
 
 
+def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:
+    # for every state we might pass through on the way to a cube-ready state, all the
+    # recipes that make progress (get one step closer to the nearest cube-ready state)
+    targets = {n[1] for n in strategy if n[0] == "chance"}
+    starts = [n[1] for n in strategy if n[0] == "choice"]
+
+    succ: dict[ArcoSet, list[tuple[Recipe, ArcoSet]]] = {}
+    stack = list(starts)
+    while stack:
+        state = stack.pop()
+        if state in succ:
+            continue
+        succ[state] = []
+        if state in targets:
+            continue
+        for recipe in RECIPES:
+            if recipe.can_apply(state):
+                nxt = recipe.apply(state)
+                succ[state].append((recipe, nxt))
+                stack.append(nxt)
+
+    preds: dict[ArcoSet, list[ArcoSet]] = defaultdict(list)
+    for state, outs in succ.items():
+        for _, nxt in outs:
+            preds[nxt].append(state)
+    dist = {t: 0 for t in targets if t in succ}
+    queue: deque[ArcoSet] = deque(dist)
+    while queue:
+        state = queue.popleft()
+        for pred in preds[state]:
+            if pred not in dist:
+                dist[pred] = dist[state] + 1
+                queue.append(pred)
+
+    options: dict[ArcoSet, list[Recipe]] = {}
+    pending = list(starts)
+    while pending:
+        state = pending.pop()
+        if state in targets or state in options:
+            continue
+        options[state] = [r for r, n in succ[state] if dist.get(n) == dist[state] - 1]
+        pending.extend(n for r, n in succ[state] if dist.get(n) == dist[state] - 1)
+    return options
+
+
+def learn_decision_list(
+    options: dict[ArcoSet, list[Recipe]], size_penalty: float
+) -> list[tuple[Recipe, ArcoSet, int]]:
+    uncovered = set(options)
+    rules: list[tuple[Recipe, ArcoSet, int]] = []
+    while uncovered:
+        candidates: set[tuple[int, str]] = set()
+        for st in uncovered:
+            for ri, recipe in enumerate(RECIPES):
+                if recipe in options[st]:
+                    extras_txt = st.remove(recipe._in).txt()
+                    for size in range(len(extras_txt) + 1):
+                        candidates.update(
+                            (ri, "".join(c)) for c in combinations(extras_txt, size)
+                        )
+        best = None
+        for ri, extras_txt in candidates:
+            recipe = RECIPES[ri]
+            pattern = recipe._in.add(ArcoSet.from_str(extras_txt))
+            hit = [st for st in uncovered if st.contains(pattern)]
+            if not all(recipe in options[st] for st in hit):
+                continue
+            key = (
+                -len(hit) / (1 + size_penalty * len(extras_txt)),
+                len(extras_txt),
+                ri,
+                extras_txt,
+            )
+            if best is None or key < best[0]:
+                best = (key, recipe, ArcoSet.from_str(extras_txt), hit)
+        assert best is not None
+        _, recipe, extras, hit = best
+        rules.append((recipe, extras, len(hit)))
+        uncovered.difference_update(hit)
+    return rules
+
+
+def print_decision_list(options: dict[ArcoSet, list[Recipe]]) -> None:
+    # try a few ways of trading rule count against rule size and keep the shortest
+    results = [(learn_decision_list(options, p), p) for p in (0.0, 0.25, 0.5, 1.0, 2.0)]
+    rules, penalty = min(
+        results, key=lambda r: (len(r[0]), sum(len(e.txt()) for _, e, _ in r[0]))
+    )
+    print(
+        f"\nDecision list ({len(rules)} rules covering {len(options)} states, "
+        f"size_penalty={penalty}; first match wins):"
+    )
+    for i, (recipe, extras, n) in enumerate(rules):
+        extra_txt = f" + extras {extras.txt()}" if extras.txt() else ""
+        print(
+            f"  {i + 1:2}. if has {recipe._in.txt()}{extra_txt}: {recipe}  ({n} states)"
+        )
+
+
+Clause = tuple[str, int]  # (extras text, bitmask of states it matches)
+
+
+def build_combinators(
+    order: list[int],
+    allowed: list[int],
+    candidates: list[list[Clause]],
+    all_states: int,
+) -> list[list[str]] | None:
+    unhandled = all_states
+    result: list[list[str]] = [[] for _ in RECIPES]
+    for pos, ri in enumerate(order):
+        later = 0
+        for rj in order[pos + 1 :]:
+            later |= allowed[rj]
+        must = unhandled & allowed[ri] & ~later
+        if not must:
+            continue
+        bad = unhandled & ~allowed[ri]
+        valid = [(txt, m) for txt, m in candidates[ri] if not (m & bad)]
+        while must:
+            best = max(
+                valid,
+                key=lambda c: (
+                    (c[1] & must).bit_count(),
+                    (c[1] & unhandled).bit_count(),
+                    -len(c[0]),
+                ),
+            )
+            if not (best[1] & must):
+                return None
+            result[ri].append(best[0])
+            unhandled &= ~best[1]
+            must &= ~best[1]
+    return result if not unhandled else None
+
+
+def print_combinators(options: dict[ArcoSet, list[Recipe]]) -> None:
+    import random
+
+    states = list(options)
+    bit = {st: 1 << i for i, st in enumerate(states)}
+    all_states = (1 << len(states)) - 1
+    allowed = [0] * len(RECIPES)
+    for st, rs in options.items():
+        for r in rs:
+            allowed[RECIPES.index(r)] |= bit[st]
+    used = [ri for ri in range(len(RECIPES)) if allowed[ri]]
+
+    candidates: list[list[Clause]] = [[] for _ in RECIPES]
+    for ri in used:
+        recipe = RECIPES[ri]
+        by_mask: dict[int, str] = {}
+        texts: set[str] = set()
+        for st in states:
+            if allowed[ri] & bit[st]:
+                extras_txt = st.remove(recipe._in).txt()
+                for size in range(len(extras_txt) + 1):
+                    texts.update("".join(c) for c in combinations(extras_txt, size))
+        for txt in texts:
+            pattern = recipe._in.add(ArcoSet.from_str(txt))
+            mask = 0
+            for st in states:
+                if st.contains(pattern):
+                    mask |= bit[st]
+            if mask not in by_mask or (len(txt), txt) < (
+                len(by_mask[mask]),
+                by_mask[mask],
+            ):
+                by_mask[mask] = txt
+        candidates[ri] = [(txt, m) for m, txt in by_mask.items()]
+
+    def cost(order: list[int]) -> tuple[int, int] | None:
+        built = build_combinators(order, allowed, candidates, all_states)
+        if built is None:
+            return None
+        return (
+            sum(len(c) for c in built),
+            sum(len(t) for c in built for t in c),
+        )
+
+    rng = random.Random(0)
+    best_order: list[int] = []
+    best_cost = (10**9, 10**9)
+    for _ in range(25):
+        order = used[:]
+        rng.shuffle(order)
+        current = cost(order)
+        assert current is not None
+        improved = True
+        while improved:
+            improved = False
+            for i in range(len(order)):
+                for j in range(len(order)):
+                    if i == j:
+                        continue
+                    trial = order[:]
+                    trial.insert(j, trial.pop(i))
+                    c = cost(trial)
+                    if c is not None and c < current:
+                        order, current, improved = trial, c, True
+        if current < best_cost:
+            best_order, best_cost = order, current
+
+    built = build_combinators(best_order, allowed, candidates, all_states)
+    assert built is not None
+    print(
+        f"\nPriority order with {best_cost[0]} clauses total, "
+        f"{best_cost[1]} extra-sphere literals ({len(states)} states):"
+    )
+    for pos, ri in enumerate(best_order):
+        recipe = RECIPES[ri]
+        if not built[ri]:
+            print(f"  {pos + 1}. {recipe}: never needed")
+            continue
+        clauses = " OR ".join(
+            f"({' AND '.join(c) or 'always'})" for c in sorted(built[ri])
+        )
+        print(f"  {pos + 1}. {recipe} [needs {recipe._in.txt()}]: {clauses}")
+
+
 def print_policy(policy: dict[ArcoSet, Recipe]) -> None:
-    by_recipe: dict[str, list[ArcoSet]] = defaultdict(list)
+    by_recipe: dict[str, tuple[Recipe, list[ArcoSet]]] = {}
     for state, recipe in policy.items():
-        by_recipe[str(recipe)].append(state)
+        by_recipe.setdefault(str(recipe), (recipe, []))[1].append(state)
 
-    def is_pure(pattern: ArcoSet, recipe: str) -> bool:
-        return all(str(policy[st]) == recipe for st in policy if st.contains(pattern))
-
-    for recipe, states in sorted(by_recipe.items()):
-        print(f"\n{recipe}: {len(states)} states")
+    for name, (recipe, states) in sorted(by_recipe.items()):
+        print(f"\n{name}: {len(states)} states")
         print("  " + " ".join(sorted(st.txt() for st in states)))
 
-        # greedy cover with the smallest sub-multisets that only ever imply this recipe
-        patterns: set[str] = set()
+        def matches(st: ArcoSet, extras: ArcoSet) -> bool:
+            return st.contains(recipe._in.add(extras))
+
+        candidates: set[str] = set()
         for st in states:
-            for size in range(1, len(st.txt()) + 1):
-                patterns.update("".join(c) for c in combinations(st.txt(), size))
-        pure = [
-            (len(p), ArcoSet.from_str(p))
-            for p in patterns
-            if is_pure(ArcoSet.from_str(p), recipe)
+            extras_txt = st.remove(recipe._in).txt()
+            for size in range(len(extras_txt) + 1):
+                candidates.update("".join(c) for c in combinations(extras_txt, size))
+        valid = [
+            ArcoSet.from_str(c)
+            for c in candidates
+            if all(
+                str(policy[st]) == name
+                for st in policy
+                if matches(st, ArcoSet.from_str(c))
+            )
         ]
+
         uncovered = set(states)
         rules: list[str] = []
         while uncovered:
-            size, pat = min(
-                pure,
-                key=lambda sp: (
-                    -sum(1 for st in uncovered if st.contains(sp[1])) / sp[0] ** 0.5,
-                    sp[1].txt(),
+            best = min(
+                valid,
+                key=lambda e: (
+                    -sum(1 for st in uncovered if matches(st, e)),
+                    len(e.txt()),
+                    e.txt(),
                 ),
             )
-            covered = {st for st in uncovered if st.contains(pat)}
-            rules.append(f"{pat.txt()}* ({len(covered)} new)")
+            covered = {st for st in uncovered if matches(st, best)}
+            rules.append(f"+{best.txt() or '(nothing)'} ({len(covered)} new)")
             uncovered -= covered
-        print("  rules: " + ", ".join(rules))
+        print(f"  {name} when extras include: " + ", ".join(rules))
 
 
 def print_graph(graph: Graph, filename: str = "graph_output.txt"):
@@ -488,7 +714,7 @@ def main():
                     f"  {node[0]}:{node[1].txt()} --[{label}]--> {target_node[0]}:{target_node[1].txt()}"
                 )
         print_graph(labelled, f"strategy_{i}.dot")
-        print_policy(build_policy(strategy))
+        print_combinators(build_options(strategy))
 
 
 if __name__ == "__main__":
