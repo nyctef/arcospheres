@@ -5,57 +5,15 @@ from tarjan import tarjan_scc
 from mdp import prune_mec
 from recipe import Recipe, RECIPES
 from arcoset import ArcoSet
+from search import bfs_all_dist_containing_target, bfs_one_path_to_exact
 
 PathCache = dict[tuple[ArcoSet, ArcoSet], tuple[int, list[ArcoSet]] | None]
-
-
-def reachable_with_target(
-    current: ArcoSet, target: ArcoSet, limit: int
-) -> dict[ArcoSet, int]:
-    if current.contains(target):
-        return {}
-    dist: dict[ArcoSet, int] = {current: 0}
-    queue: deque[ArcoSet] = deque([current])
-    while queue:
-        state = queue.popleft()
-        steps = dist[state]
-        if steps >= limit:
-            continue
-        for recipe in RECIPES:
-            if recipe.can_apply(state):
-                nxt = recipe.apply(state)
-                if nxt not in dist:
-                    dist[nxt] = steps + 1
-                    queue.append(nxt)
-    return {s: d for s, d in dist.items() if s.contains(target)}
 
 
 # Nodes are either ("chance", state) (a state with LXZ about to go in the tesseract)
 # or ("choice", state)
 Node = tuple[str, ArcoSet]
 Graph = dict[Node, dict[Node, str]]
-
-
-def fold_sequence(start: ArcoSet, goal: ArcoSet) -> list[Recipe]:
-    parents: dict[ArcoSet, tuple[ArcoSet, Recipe] | None] = {start: None}
-    queue: deque[ArcoSet] = deque([start])
-    while queue:
-        state = queue.popleft()
-        if state == goal:
-            break
-        for recipe in RECIPES:
-            if recipe.can_apply(state):
-                nxt = recipe.apply(state)
-                if nxt not in parents:
-                    parents[nxt] = (state, recipe)
-                    queue.append(nxt)
-    steps: list[Recipe] = []
-    node = goal
-    while (p := parents[node]) is not None:
-        node, recipe = p
-        steps.append(recipe)
-    steps.reverse()
-    return steps
 
 
 def extract_strategy(mec: list[Node], graph: Graph, start: Node) -> Graph:
@@ -539,7 +497,7 @@ def main():
             graph[chance][choice] = label
             if choice not in graph:
                 if after not in choice_cache:
-                    choice_cache[after] = reachable_with_target(
+                    choice_cache[after] = bfs_all_dist_containing_target(
                         after, target, fold_limit
                     )
                 graph[choice] = {
@@ -570,7 +528,7 @@ def main():
             labelled[node] = {}
             for target_node, label in edges.items():
                 if node[0] == "choice":
-                    folds = fold_sequence(node[1], target_node[1])
+                    folds = bfs_one_path_to_exact(node[1], target_node[1])
                     label = ", ".join(str(f) for f in folds) or "(none)"
                 labelled[node][target_node] = label
                 print(
