@@ -20,7 +20,10 @@ def _is_choice_edge(e: object) -> bool:
 
 
 def _induced(graph: Graph[V, E], vertices: set[V]) -> Graph[V, E]:
-    return {v: {w: e for w, e in graph.get(v, {}).items() if w in vertices} for v in vertices}
+    return {
+        v: {w: e for w, e in graph.get(v, {}).items() if w in vertices}
+        for v in vertices
+    }
 
 
 def _prune_set(candidate: set[V], graph: Graph[V, E]) -> set[V]:
@@ -49,11 +52,7 @@ def _prune_set(candidate: set[V], graph: Graph[V, E]) -> set[V]:
 
 
 def prune_mec(scc: list[V], graph: Graph[V, E]) -> list[list[V]]:
-    """Returns the maximal end components contained in the given SCC.
-
-    After pruning vertices that can't satisfy their obligations, the remainder may
-    no longer be strongly connected, so re-split into SCCs and repeat until stable.
-    """
+    # need to remember to re-split SCCs after pruning, since we may have broken them apart
     work = [set(scc)]
     found: list[list[V]] = []
     while work:

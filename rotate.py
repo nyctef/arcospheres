@@ -1,5 +1,5 @@
 from collections import defaultdict, deque
-from itertools import combinations_with_replacement
+from itertools import combinations, combinations_with_replacement
 from pathlib import Path
 from tarjan import tarjan_scc
 from mdp import prune_mec
@@ -276,8 +276,133 @@ Node = tuple[str, ArcoSet]
 Graph = dict[Node, dict[Node, str]]
 
 
-def print_graph(graph: Graph):
-    out_file = Path(__file__).parent / "scratch" / "graph_output.txt"
+def fold_sequence(start: ArcoSet, goal: ArcoSet) -> list[Recipe]:
+    parents: dict[ArcoSet, tuple[ArcoSet, Recipe] | None] = {start: None}
+    queue: deque[ArcoSet] = deque([start])
+    while queue:
+        state = queue.popleft()
+        if state == goal:
+            break
+        for recipe in RECIPES:
+            if recipe.can_apply(state):
+                nxt = recipe.apply(state)
+                if nxt not in parents:
+                    parents[nxt] = (state, recipe)
+                    queue.append(nxt)
+    steps: list[Recipe] = []
+    node = goal
+    while (p := parents[node]) is not None:
+        node, recipe = p
+        steps.append(recipe)
+    steps.reverse()
+    return steps
+
+
+def extract_strategy(mec: list[Node], graph: Graph, start: Node) -> Graph:
+    inside = set(mec)
+    strategy: Graph = {}
+    queue: deque[Node] = deque([start])
+    while queue:
+        node = queue.popleft()
+        if node in strategy:
+            continue
+        if node[0] == "chance":
+            strategy[node] = dict(graph[node])
+        else:
+            options = [(t, l) for t, l in graph[node].items() if t in inside]
+            best_t, best_l = min(
+                options, key=lambda o: (o[0] not in strategy, int(o[1]), o[0][1].txt())
+            )
+            strategy[node] = {best_t: best_l}
+        queue.extend(strategy[node])
+    return strategy
+
+
+def build_policy(strategy: Graph) -> dict[ArcoSet, Recipe]:
+    targets = {n[1] for n in strategy if n[0] == "chance"}
+    starts = [n[1] for n in strategy if n[0] == "choice"]
+
+    succ: dict[ArcoSet, list[tuple[Recipe, ArcoSet]]] = {}
+    seen = set(starts)
+    stack = list(starts)
+    while stack:
+        state = stack.pop()
+        succ[state] = []
+        if state in targets:
+            continue
+        for recipe in RECIPES:
+            if recipe.can_apply(state):
+                nxt = recipe.apply(state)
+                succ[state].append((recipe, nxt))
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+
+    preds: dict[ArcoSet, list[ArcoSet]] = defaultdict(list)
+    for state, outs in succ.items():
+        for _, nxt in outs:
+            preds[nxt].append(state)
+    dist = {t: 0 for t in targets if t in seen}
+    queue: deque[ArcoSet] = deque(dist)
+    while queue:
+        state = queue.popleft()
+        for pred in preds[state]:
+            if pred not in dist:
+                dist[pred] = dist[state] + 1
+                queue.append(pred)
+
+    policy: dict[ArcoSet, Recipe] = {}
+    pending = list(starts)
+    while pending:
+        state = pending.pop()
+        if state in targets or state in policy:
+            continue
+        recipe, nxt = next(o for o in succ[state] if dist.get(o[1]) == dist[state] - 1)
+        policy[state] = recipe
+        pending.append(nxt)
+    return policy
+
+
+def print_policy(policy: dict[ArcoSet, Recipe]) -> None:
+    by_recipe: dict[str, list[ArcoSet]] = defaultdict(list)
+    for state, recipe in policy.items():
+        by_recipe[str(recipe)].append(state)
+
+    def is_pure(pattern: ArcoSet, recipe: str) -> bool:
+        return all(str(policy[st]) == recipe for st in policy if st.contains(pattern))
+
+    for recipe, states in sorted(by_recipe.items()):
+        print(f"\n{recipe}: {len(states)} states")
+        print("  " + " ".join(sorted(st.txt() for st in states)))
+
+        # greedy cover with the smallest sub-multisets that only ever imply this recipe
+        patterns: set[str] = set()
+        for st in states:
+            for size in range(1, len(st.txt()) + 1):
+                patterns.update("".join(c) for c in combinations(st.txt(), size))
+        pure = [
+            (len(p), ArcoSet.from_str(p))
+            for p in patterns
+            if is_pure(ArcoSet.from_str(p), recipe)
+        ]
+        uncovered = set(states)
+        rules: list[str] = []
+        while uncovered:
+            size, pat = min(
+                pure,
+                key=lambda sp: (
+                    -sum(1 for st in uncovered if st.contains(sp[1])) / sp[0] ** 0.5,
+                    sp[1].txt(),
+                ),
+            )
+            covered = {st for st in uncovered if st.contains(pat)}
+            rules.append(f"{pat.txt()}* ({len(covered)} new)")
+            uncovered -= covered
+        print("  rules: " + ", ".join(rules))
+
+
+def print_graph(graph: Graph, filename: str = "graph_output.txt"):
+    out_file = Path(__file__).parent / "scratch" / filename
     out_file.parent.mkdir(exist_ok=True)
 
     def name(n: Node) -> str:
@@ -342,6 +467,28 @@ def main():
         )
 
     print_graph(graph)
+
+    for i, mec in enumerate(mecs):
+        chance_nodes = [n for n in mec if n[0] == "chance"]
+        strategy = min(
+            (extract_strategy(mec, graph, n) for n in chance_nodes),
+            key=lambda g: (len(g), min(n[1].txt() for n in g)),
+        )
+        # relabel choice edges with the actual folds
+        labelled: Graph = {}
+        print(f"\nStrategy {i}: {len(strategy)} nodes")
+        for node, edges in strategy.items():
+            labelled[node] = {}
+            for target_node, label in edges.items():
+                if node[0] == "choice":
+                    folds = fold_sequence(node[1], target_node[1])
+                    label = ", ".join(str(f) for f in folds) or "(none)"
+                labelled[node][target_node] = label
+                print(
+                    f"  {node[0]}:{node[1].txt()} --[{label}]--> {target_node[0]}:{target_node[1].txt()}"
+                )
+        print_graph(labelled, f"strategy_{i}.dot")
+        print_policy(build_policy(strategy))
 
 
 if __name__ == "__main__":
