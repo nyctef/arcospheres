@@ -281,8 +281,8 @@ def main():
     # -> are there loops that work for both?
 
     # source -> target -> path length
-    graph: dict[ArcoSet, dict[ArcoSet, float]] = defaultdict(
-        lambda: defaultdict(lambda: float("inf"))
+    graph: dict[ArcoSet, dict[ArcoSet, str | None]] = defaultdict(
+        lambda: defaultdict(lambda: None)
     )
 
     cube1 = Recipe.from_str("LXZ -> PET")
@@ -297,18 +297,18 @@ def main():
         after1 = cube1.apply(start)
         after2 = cube2.apply(start)
 
-        graph[start][after1] = 1
-        graph[start][after2] = 1
+        graph[start][after1] = "PET"
+        graph[start][after2] = "POG"
 
         next1 = find_short_path(after1, target)
         if next1 is not None:
             nn, length = next1
-            graph[after1][nn] = length
+            graph[after1][nn] = str(length)
 
         next2 = find_short_path(after2, target)
         if next2 is not None:
             nn, length = next2
-            graph[after2][nn] = length
+            graph[after2][nn] = str(length)
 
     print(len(graph))
 
@@ -318,7 +318,9 @@ def main():
         f.write('graph [overlap=scale, sep="+0.5"]; edge [len=1.0];\n')
         for start, edges in graph.items():
             for end, length in edges.items():
-                f.write(f'    "{start}" -> "{end}" [label="{length}"];\n')
+                if length is None:
+                    continue
+                f.write(f'    "{start.txt()}" -> "{end.txt()}" [label="{length}"];\n')
         f.write("}\n")
 
 
