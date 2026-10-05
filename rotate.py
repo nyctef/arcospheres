@@ -1,5 +1,6 @@
 from collections import defaultdict, deque
 from itertools import combinations_with_replacement
+from pathlib import Path
 
 
 class ArcoSet:
@@ -246,9 +247,7 @@ def find_specific_cycle(input: ArcoSet, output: ArcoSet, limit: int):
                     print()
 
 
-def test_loop(cube: Recipe, current: ArcoSet) -> ArcoSet | None:
-    current = cube.apply(current)
-    target = ArcoSet.from_str("LXZ")
+def find_short_path(current: ArcoSet, target: ArcoSet) -> tuple[ArcoSet, int] | None:
 
     limit = 30
     cache: PathCache = {}
@@ -265,7 +264,7 @@ def test_loop(cube: Recipe, current: ArcoSet) -> ArcoSet | None:
     if len(shortest_path) > 0:
         print(f"continuing path | Path: {format_path(shortest_path)}")
         current = shortest_path[-1]
-        return current
+        return current, shortest_len
     else:
         return None
 
@@ -277,27 +276,50 @@ def main():
     #     limit=30,
     # )
 
+    # try drawing a graph of all 1-extra and 2-extra paths
+    # -> are there loops for PET or POG?
+    # -> are there loops that work for both?
+
+    # source -> target -> path length
+    graph: dict[ArcoSet, dict[ArcoSet, float]] = defaultdict(
+        lambda: defaultdict(lambda: float("inf"))
+    )
+
     cube1 = Recipe.from_str("LXZ -> PET")
     cube2 = Recipe.from_str("LXZ -> POG")
-    current = ArcoSet.from_str("LXZOX")
-    for _i in range(1, 30):
+    target = ArcoSet.from_str("LXZ")
+    for extras_c in combinations_with_replacement("LXEPZTGO", 2):
 
-        extra = current.remove(ArcoSet.from_str("LXZ"))
-        print(f"{current=} , {extra=}")
+        extras_str = "".join(extras_c)
+        print(f"start: {extras_str}")
+        start = ArcoSet.from_str("LXZ" + extras_str)
 
-        next1 = test_loop(cube1, current)
+        after1 = cube1.apply(start)
+        after2 = cube2.apply(start)
+
+        graph[start][after1] = 1
+        graph[start][after2] = 1
+
+        next1 = find_short_path(after1, target)
         if next1 is not None:
-            current = next1
-            print(f"recipe: {cube1}")
-            continue
+            nn, length = next1
+            graph[after1][nn] = length
 
-        next2 = test_loop(cube2, current)
+        next2 = find_short_path(after2, target)
         if next2 is not None:
-            current = next2
-            print(f"recipe: {cube2}")
-        else:
-            print("stuck")
-            break
+            nn, length = next2
+            graph[after2][nn] = length
+
+    print(len(graph))
+
+    out_file = Path(__file__).parent / "scratch" / "graph_output.txt"
+    with out_file.open("w") as f:
+        f.write("digraph G {\n")
+        f.write('graph [overlap=scale, sep="+0.5"]; edge [len=1.0];\n')
+        for start, edges in graph.items():
+            for end, length in edges.items():
+                f.write(f'    "{start}" -> "{end}" [label="{length}"];\n')
+        f.write("}\n")
 
 
 if __name__ == "__main__":
