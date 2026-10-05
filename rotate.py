@@ -1,4 +1,4 @@
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from itertools import combinations, combinations_with_replacement
 from pathlib import Path
 from tarjan import tarjan_scc
@@ -580,10 +580,21 @@ def print_combinators(
             print(f"  {pos + 1}. {recipe}: never needed")
             continue
         clauses = " OR ".join(
-            f"({' AND '.join(c) or 'always'})" for c in sorted(built[ri])
+            format_combinator_part(c, recipe._in.txt()) for c in sorted(built[ri])
         )
         print(f"  {pos + 1}. {recipe} [needs {recipe._in.txt()}]: {clauses}")
     return best_order, built
+
+
+def format_combinator_part(c: str, req: str):
+    if not len(c):
+        return "(always)"
+
+    counts = Counter(c)
+    for ch in req:
+        if ch in c:
+            counts[ch] += 1
+    return f"({' AND '.join(f'{ch} >= {counts[ch]}' for ch in sorted(counts))})"
 
 
 def simulate_combinators(
