@@ -1,6 +1,7 @@
 from collections import defaultdict, deque
 from itertools import combinations_with_replacement
 from pathlib import Path
+from tarjan import tarjan_scc
 
 
 class ArcoSet:
@@ -259,10 +260,10 @@ def find_short_path(current: ArcoSet, target: ArcoSet) -> tuple[ArcoSet, int] | 
         if path_length < shortest_len:
             shortest_len = path_length
             shortest_path = path
-            print(f">>>>> Found shorter path | Path: {format_path(shortest_path)}")
+            # print(f">>>>> Found shorter path | Path: {format_path(shortest_path)}")
 
     if len(shortest_path) > 0:
-        print(f"continuing path | Path: {format_path(shortest_path)}")
+        # print(f"continuing path | Path: {format_path(shortest_path)}")
         current = shortest_path[-1]
         return current, shortest_len
     else:
@@ -288,10 +289,10 @@ def main():
     cube1 = Recipe.from_str("LXZ -> PET")
     cube2 = Recipe.from_str("LXZ -> POG")
     target = ArcoSet.from_str("LXZ")
-    for extras_c in combinations_with_replacement("LXEPZTGO", 2):
+    for extras_c in combinations_with_replacement("LXEPZTGO", 3):
 
         extras_str = "".join(extras_c)
-        print(f"start: {extras_str}")
+        # print(f"start: {extras_str}")
         start = ArcoSet.from_str("LXZ" + extras_str)
 
         after1 = cube1.apply(start)
@@ -310,7 +311,7 @@ def main():
             nn, length = next2
             graph[after2][nn] = str(length)
 
-    print(len(graph))
+    print([scc for scc in tarjan_scc(graph) if len(scc) > 1])
 
     out_file = Path(__file__).parent / "scratch" / "graph_output.txt"
     with out_file.open("w") as f:
