@@ -1,6 +1,7 @@
 from collections import Counter, defaultdict, deque
 from itertools import combinations, combinations_with_replacement
 from pathlib import Path
+from typing import Callable
 from tarjan import tarjan_scc
 from mdp import prune_mec
 from recipe import Recipe, RECIPES
@@ -200,15 +201,13 @@ def build_combinators(
             continue
         bad = unhandled & ~allowed[ri]
         valid = [(txt, m) for txt, m in candidates[ri] if not (m & bad)]
+        max_by: Callable[[tuple[str, int]], tuple[int, int, int]] = lambda c: (
+            (c[1] & must).bit_count(),
+            (c[1] & unhandled).bit_count(),
+            -len(c[0]),
+        )
         while must:
-            best = max(
-                valid,
-                key=lambda c: (
-                    (c[1] & must).bit_count(),
-                    (c[1] & unhandled).bit_count(),
-                    -len(c[0]),
-                ),
-            )
+            best = max(valid, key=max_by)
             if not (best[1] & must):
                 return None
             result[ri].append(best[0])
