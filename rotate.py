@@ -499,7 +499,9 @@ def build_combinators(
     return result if not unhandled else None
 
 
-def print_combinators(options: dict[ArcoSet, list[Recipe]]) -> None:
+def print_combinators(
+    options: dict[ArcoSet, list[Recipe]],
+) -> tuple[list[int], list[list[str]]]:
     import random
 
     states = list(options)
@@ -581,6 +583,52 @@ def print_combinators(options: dict[ArcoSet, list[Recipe]]) -> None:
             f"({' AND '.join(c) or 'always'})" for c in sorted(built[ri])
         )
         print(f"  {pos + 1}. {recipe} [needs {recipe._in.txt()}]: {clauses}")
+    return best_order, built
+
+
+def simulate_combinators(
+    strategy: Graph, order: list[int], built: list[list[str]]
+) -> None:
+    cube_ready = {n[1] for n in strategy if n[0] == "chance"}
+    cubes = [Recipe.from_str("LXZ -> PET"), Recipe.from_str("LXZ -> POG")]
+    rules = [
+        (RECIPES[ri], [recipe_in_plus(RECIPES[ri], c) for c in built[ri]])
+        for ri in order
+        if built[ri]
+    ]
+
+    def next_fold(state: ArcoSet) -> Recipe | None:
+        for recipe, patterns in rules:
+            if recipe.can_apply(state) and any(state.contains(p) for p in patterns):
+                return recipe
+        return None
+
+    runs = 0
+    max_folds = 0
+    for start in cube_ready:
+        for cube in cubes:
+            state = cube.apply(start)
+            visited = {state}
+            folds = 0
+            while state not in cube_ready:
+                recipe = next_fold(state)
+                assert (
+                    recipe is not None
+                ), f"STUCK: no rule fires at {state} (came from {start} via {cube})"
+                state = recipe.apply(state)
+                folds += 1
+                assert state not in visited, f"LOOP: revisited {state} from {start}"
+                visited.add(state)
+            runs += 1
+            max_folds = max(max_folds, folds)
+    print(
+        f"Simulation OK: {len(cube_ready)} cube-ready states x 2 outcomes = {runs} runs, "
+        f"all return to a cube-ready state (max {max_folds} folds)"
+    )
+
+
+def recipe_in_plus(recipe: Recipe, extras_txt: str) -> ArcoSet:
+    return recipe._in.add(ArcoSet.from_str(extras_txt))
 
 
 def print_policy(policy: dict[ArcoSet, Recipe]) -> None:
@@ -714,7 +762,8 @@ def main():
                     f"  {node[0]}:{node[1].txt()} --[{label}]--> {target_node[0]}:{target_node[1].txt()}"
                 )
         print_graph(labelled, f"strategy_{i}.dot")
-        print_combinators(build_options(strategy))
+        order, built = print_combinators(build_options(strategy))
+        simulate_combinators(strategy, order, built)
 
 
 if __name__ == "__main__":
