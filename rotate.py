@@ -249,41 +249,46 @@ def find_specific_cycle(input: ArcoSet, output: ArcoSet, limit: int):
                     print()
 
 
-def find_short_path(current: ArcoSet, target: ArcoSet) -> tuple[ArcoSet, int] | None:
+def reachable_with_target(
+    current: ArcoSet, target: ArcoSet, limit: int
+) -> dict[ArcoSet, int]:
+    """All states reachable within `limit` folds that contain `target`,
+    mapped to the minimum number of folds needed (0 = already there)."""
+    dist: dict[ArcoSet, int] = {current: 0}
+    queue: deque[ArcoSet] = deque([current])
+    while queue:
+        state = queue.popleft()
+        steps = dist[state]
+        if steps >= limit:
+            continue
+        for recipe in RECIPES:
+            if recipe.can_apply(state):
+                nxt = recipe.apply(state)
+                if nxt not in dist:
+                    dist[nxt] = steps + 1
+                    queue.append(nxt)
+    return {s: d for s, d in dist.items() if s.contains(target)}
 
-    limit = 30
-    cache: PathCache = {}
-    shortest_len = 999
-    shortest_path: list[ArcoSet] = []
 
-    if (p := find_path(current, target, limit, cache)) is not None:
-        path_length, path = p
-        if path_length < shortest_len:
-            shortest_len = path_length
-            shortest_path = path
-            # print(f">>>>> Found shorter path | Path: {format_path(shortest_path)}")
-
-    if len(shortest_path) > 0:
-        # print(f"continuing path | Path: {format_path(shortest_path)}")
-        current = shortest_path[-1]
-        return current, shortest_len
-    else:
-        return None
-
-
-Graph = dict[ArcoSet, dict[ArcoSet, str | None]]
+# Nodes are either ("chance", state) - a state with LXZ about to go in the tesseract -
+# or ("choice", state) - a state just after the tesseract, where we choose how to fold.
+Node = tuple[str, ArcoSet]
+Graph = dict[Node, dict[Node, str]]
 
 
 def print_graph(graph: Graph):
     out_file = Path(__file__).parent / "scratch" / "graph_output.txt"
+    out_file.parent.mkdir(exist_ok=True)
+
+    def name(n: Node) -> str:
+        return f"{n[0][0]}:{n[1].txt()}"
+
     with out_file.open("w") as f:
         f.write("digraph G {\n")
         f.write('graph [overlap=scale, sep="+0.5"]; edge [len=1.0];\n')
         for start, edges in graph.items():
-            for end, length in edges.items():
-                if length is None:
-                    continue
-                f.write(f'    "{start.txt()}" -> "{end.txt()}" [label="{length}"];\n')
+            for end, label in edges.items():
+                f.write(f'    "{name(start)}" -> "{name(end)}" [label="{label}"];\n')
         f.write("}\n")
 
 
@@ -299,36 +304,42 @@ def main():
     # -> are there loops that work for both?
 
     # source -> target -> path length
-    graph: Graph = defaultdict(lambda: defaultdict(lambda: None))
+    graph: Graph = {}
 
     cube1 = Recipe.from_str("LXZ -> PET")
     cube2 = Recipe.from_str("LXZ -> POG")
     target = ArcoSet.from_str("LXZ")
-    for extras_c in combinations_with_replacement("LXEPZTGO", 15):
+    fold_limit = 30
+    extras_count = 3
+    choice_cache: dict[ArcoSet, dict[ArcoSet, int]] = {}
 
+    for extras_c in combinations_with_replacement("LXEPZTGO", extras_count):
         extras_str = "".join(extras_c)
-        # print(f"start: {extras_str}")
         start = ArcoSet.from_str("LXZ" + extras_str)
+        chance: Node = ("chance", start)
+        graph[chance] = {}
 
-        after1 = cube1.apply(start)
-        after2 = cube2.apply(start)
-
-        graph[start][after1] = "PET"
-        graph[start][after2] = "POG"
-
-        next1 = find_short_path(after1, target)
-        if next1 is not None:
-            nn, length = next1
-            graph[after1][nn] = str(length)
-
-        next2 = find_short_path(after2, target)
-        if next2 is not None:
-            nn, length = next2
-            graph[after2][nn] = str(length)
+        for label, cube in (("PET", cube1), ("POG", cube2)):
+            after = cube.apply(start)
+            choice: Node = ("choice", after)
+            graph[chance][choice] = label
+            if choice not in graph:
+                if after not in choice_cache:
+                    choice_cache[after] = reachable_with_target(
+                        after, target, fold_limit
+                    )
+                graph[choice] = {
+                    ("chance", s): str(d) for s, d in choice_cache[after].items()
+                }
 
     sccs = [scc for scc in tarjan_scc(graph) if len(scc) > 1]
-    pruned_sccs = [prune_mec(scc, graph) for scc in sccs]
-    print(pruned_sccs)
+    mecs = [mec for scc in sccs for mec in prune_mec(scc, graph)]
+    print(f"{len(graph)} nodes, {len(sccs)} SCCs, {len(mecs)} MECs")
+    for mec in mecs:
+        chance_states = sorted(n[1].txt() for n in mec if n[0] == "chance")
+        print(
+            f"MEC with {len(chance_states)} cube-ready states, e.g. {chance_states[:5]}"
+        )
 
     print_graph(graph)
 

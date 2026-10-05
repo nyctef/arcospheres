@@ -7,43 +7,65 @@
 
 from typing import TypeVar
 
+from tarjan import tarjan_scc
+
 V = TypeVar("V")
 E = TypeVar("E")
 Graph = dict[V, dict[V, E]]
 
 
-def prune_mec(scc: list[V], graph: Graph[V, E]) -> list[V]:
-    result = set(scc)
-    while True:
-        has_changed = False
-        if len(result) <= 1:
-            return []
+def _is_choice_edge(e: object) -> bool:
+    # choice edges are labelled with a step count (possibly zero)
+    return str(e).isdigit()
+
+
+def _induced(graph: Graph[V, E], vertices: set[V]) -> Graph[V, E]:
+    return {v: {w: e for w, e in graph.get(v, {}).items() if w in vertices} for v in vertices}
+
+
+def _prune_set(candidate: set[V], graph: Graph[V, E]) -> set[V]:
+    result = set(candidate)
+    changed = True
+    while changed:
+        changed = False
         for v in list(result):
-            # what kind of outgoing edges does v have?
-            # - deterministic > is there a choice to stay in the component? if so keep
-            # - nondeterministic > do both choices stay in the compoment? if so keep
-            edges = set(graph[v].values())
-            targets = set(graph[v].keys())
+            out = graph.get(v, {})
+            edges = set(out.values())
+            targets = set(out.keys())
 
-            # todo: either inject this or admit we're not actually generic on graph types
-            choice_edges = [e for e in edges if str(e).isdigit() and int(str(e)) > 0]
-
-            if any(choice_edges):
-                # do we have a choice
-                if not any(target in result for target in targets):
-                    result.remove(v)
-                    has_changed = True
-                    break
-
-            elif "PET" in edges or "POG" in edges:
-                # is nondeterministic
-                if not targets.issubset(result):
-                    result.remove(v)
-                    has_changed = True
-                    break
+            if edges and all(_is_choice_edge(e) for e in edges):
+                # choice: keep if at least one option stays inside
+                keep = any(t in result for t in targets)
+            elif edges and not any(_is_choice_edge(e) for e in edges):
+                # chance: every outcome must stay inside
+                keep = targets.issubset(result)
             else:
                 assert False, f"Unexpected edge types for vertex {v}: {edges}"
 
-        if not has_changed:
-            break
-    return list(result)
+            if not keep:
+                result.remove(v)
+                changed = True
+    return result
+
+
+def prune_mec(scc: list[V], graph: Graph[V, E]) -> list[list[V]]:
+    """Returns the maximal end components contained in the given SCC.
+
+    After pruning vertices that can't satisfy their obligations, the remainder may
+    no longer be strongly connected, so re-split into SCCs and repeat until stable.
+    """
+    work = [set(scc)]
+    found: list[list[V]] = []
+    while work:
+        candidate = work.pop()
+        if len(candidate) <= 1:
+            continue
+        pruned = _prune_set(candidate, graph)
+        if len(pruned) <= 1:
+            continue
+        parts = [set(p) for p in tarjan_scc(_induced(graph, pruned)) if len(p) > 1]
+        if len(parts) == 1 and parts[0] == pruned:
+            found.append(list(pruned))
+        else:
+            work.extend(parts)
+    return found
