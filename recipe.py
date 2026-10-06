@@ -39,3 +39,12 @@ RECIPES = [
     Recipe.from_str("LXEP -> ZTGO", 100),
     Recipe.from_str("ZTGO -> LXEP", 100),
 ]
+
+
+def get_common_input(recipes: list[Recipe]) -> ArcoSet:
+    if not recipes:
+        raise ValueError("No recipes provided")
+    common = recipes[0].in_
+    for r in recipes[1:]:
+        assert r.in_ == common, f"mismatched recipe inputs"
+    return common

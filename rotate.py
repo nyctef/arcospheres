@@ -4,7 +4,7 @@ from policy import build_options, print_combinators
 from simulate import simulate_combinators
 from tarjan import tarjan_scc
 from mdp import prune_mec, extract_strategy
-from recipe import Recipe
+from recipe import Recipe, get_common_input
 from arcoset import ArcoSet
 from search import bfs_all_dist_containing_target
 from arco_types import Graph, WorldState
@@ -19,8 +19,8 @@ def main():
     fold_limit = 500
     extras_count = 3
 
-    recipe_mats = recipe_chance_1.in_
-    assert recipe_mats == recipe_chance_2.in_
+    chance_ready_recipes = [recipe_chance_1, recipe_chance_2]
+    recipe_mats = get_common_input(chance_ready_recipes)
 
     # we're looking for cycles in the graph, and cycles we're interested in
     # must include nodes where we have the ingredients for the recipe. so we
@@ -67,7 +67,7 @@ def main():
     for mec in mecs:
         chance_states = sorted(n[1].txt() for n in mec if n[0] == "chance")
         print(
-            f"MEC with {len(chance_states)} cube-ready states, e.g. {chance_states[:5]}"
+            f"MEC with {len(chance_states)} chance-ready states, e.g. {chance_states[:5]}"
         )
 
     print_graph(graph)
@@ -90,11 +90,17 @@ def main():
             key=lambda g: (len(g), min(n[1].txt() for n in g)),
         )
         print_strategy(i, strategy)
-        cube_ready = {n[1] for n in strategy if n[0] == "chance"}
-        order, built, cube_clauses = print_combinators(
-            build_options(strategy), cube_ready
+        chance_ready = {n[1] for n in strategy if n[0] == "chance"}
+        order, built, chance_ready_clauses = print_combinators(
+            chance_ready_recipes, build_options(strategy), chance_ready
         )
-        simulate_combinators(strategy, order, built, cube_clauses)
+        simulate_combinators(
+            [recipe_chance_1, recipe_chance_2],
+            strategy,
+            order,
+            built,
+            chance_ready_clauses,
+        )
 
 
 if __name__ == "__main__":

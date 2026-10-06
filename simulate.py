@@ -1,28 +1,30 @@
 from arco_types import Graph, ArcoSet
-from recipe import Recipe, RECIPES
-
-# TODO
-CUBE_INPUT = ArcoSet.from_str("LXZ")
+from recipe import Recipe, RECIPES, get_common_input
 
 
 def simulate_combinators(
+    chance_recipes: list[Recipe],
     strategy: Graph,
     order: list[int],
     built: list[list[str]],
-    cube_clauses: list[str],
+    chance_ready_clauses: list[str],
 ) -> None:
-    cube_ready = {n[1] for n in strategy if n[0] == "chance"}
-    cubes = [Recipe.from_str("LXZ -> PET", 20), Recipe.from_str("LXZ -> POG", 20)]
+
+    chance_recipe_mats = get_common_input(chance_recipes)
+
+    chance_ready = {n[1] for n in strategy if n[0] == "chance"}
     rules = [
         (RECIPES[ri], [recipe_in_plus(RECIPES[ri], c) for c in built[ri]])
         for ri in order
         if built[ri]
     ]
 
-    cube_patterns = [CUBE_INPUT.add(ArcoSet.from_str(c)) for c in cube_clauses]
+    chance_ready_patterns = [
+        chance_recipe_mats.add(ArcoSet.from_str(c)) for c in chance_ready_clauses
+    ]
 
-    def should_cube(state: ArcoSet) -> bool:
-        return any(state.contains(p) for p in cube_patterns)
+    def should_produce(state: ArcoSet) -> bool:
+        return any(state.contains(p) for p in chance_ready_patterns)
 
     def next_fold(state: ArcoSet) -> Recipe | None:
         for recipe, patterns in rules:
@@ -32,24 +34,24 @@ def simulate_combinators(
 
     runs = 0
     max_folds = 0
-    for start in cube_ready:
-        for cube in cubes:
-            state = cube.apply(start)
+    for start in chance_ready:
+        for chance_recipe in chance_recipes:
+            state = chance_recipe.apply(start)
             visited = {state}
             folds = 0
             while True:
-                if should_cube(state):
+                if should_produce(state):
                     assert (
-                        state in cube_ready
-                    ), f"EARLY CUBE: cube rule fires at off-plan {state} (from {start})"
+                        state in chance_ready
+                    ), f"EARLY PRODUCTION: chance rule fires at off-plan {state} (from {start})"
                     break
                 assert (
-                    state not in cube_ready
-                ), f"MISSED CUBE: cube rule silent at cube-ready {state} (from {start})"
+                    state not in chance_ready
+                ), f"MISSED PRODUCTION: chance rule silent at chance-ready {state} (from {start})"
                 recipe = next_fold(state)
                 assert (
                     recipe is not None
-                ), f"STUCK: no rule fires at {state} (came from {start} via {cube})"
+                ), f"STUCK: no rule fires at {state} (came from {start} via {chance_recipe})"
                 state = recipe.apply(state)
                 folds += 1
                 assert state not in visited, f"LOOP: revisited {state} from {start}"
@@ -57,8 +59,8 @@ def simulate_combinators(
             runs += 1
             max_folds = max(max_folds, folds)
     print(
-        f"Simulation OK: {len(cube_ready)} cube-ready states x 2 outcomes = {runs} runs, "
-        f"all cube exactly at cube-ready states (max {max_folds} folds)"
+        f"Simulation OK: {len(chance_ready)} chance-ready states x 2 outcomes = {runs} runs, "
+        f"all production exactly at chance-ready states (max {max_folds} folds)"
     )
 
 

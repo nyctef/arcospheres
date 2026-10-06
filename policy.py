@@ -3,12 +3,12 @@ from typing import Callable
 from itertools import combinations
 from arco_types import Graph
 from arcoset import ArcoSet
-from recipe import RECIPES, Recipe
+from recipe import RECIPES, Recipe, get_common_input
 
 
 def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:
-    # for every state we might pass through on the way to a cube-ready state, all the
-    # recipes that make progress (get one step closer to the nearest cube-ready state)
+    # for every state we might pass through on the way to a chance-ready state, all the
+    # recipes that make progress (get one step closer to the nearest chance-ready state)
     targets = {n[1] for n in strategy if n[0] == "chance"}
     starts = [n[1] for n in strategy if n[0] == "choice"]
 
@@ -90,23 +90,24 @@ def build_combinators(
     return result if not unhandled else None
 
 
-CUBE_INPUT = ArcoSet.from_str("LXZ")
-
-
 def build_cube_policy(
-    options: dict[ArcoSet, list[Recipe]], cube_ready: set[ArcoSet]
+    chance_ready_recipes: list[Recipe],
+    options: dict[ArcoSet, list[Recipe]],
+    cube_ready: set[ArcoSet],
 ) -> list[str]:
+    chance_recipe_mats = get_common_input(chance_ready_recipes)
+
     forbidden = [
-        st for st in options if st.contains(CUBE_INPUT) and st not in cube_ready
+        st for st in options if st.contains(chance_recipe_mats) and st not in cube_ready
     ]
     texts: set[str] = set()
     for st in cube_ready:
-        extras_txt = st.remove(CUBE_INPUT).txt()
+        extras_txt = st.remove(chance_recipe_mats).txt()
         for size in range(len(extras_txt) + 1):
             texts.update("".join(c) for c in combinations(extras_txt, size))
 
     def matches(st: ArcoSet, txt: str) -> bool:
-        return st.contains(CUBE_INPUT.add(ArcoSet.from_str(txt)))
+        return st.contains(chance_recipe_mats.add(ArcoSet.from_str(txt)))
 
     valid = sorted(t for t in texts if not any(matches(f, t) for f in forbidden))
     uncovered = set(cube_ready)
@@ -122,10 +123,13 @@ def build_cube_policy(
 
 
 def print_combinators(
+    chance_ready_recipes: list[Recipe],
     options: dict[ArcoSet, list[Recipe]],
-    cube_ready: set[ArcoSet],
+    chance_ready: set[ArcoSet],
 ) -> tuple[list[int], list[list[str]], list[str]]:
     import random
+
+    chance_ready_mats = get_common_input(chance_ready_recipes)
 
     states = list(options)
     bit = {st: 1 << i for i, st in enumerate(states)}
@@ -193,16 +197,19 @@ def print_combinators(
 
     built = build_combinators(best_order, allowed, candidates, all_states)
     assert built is not None
-    cube_clauses = build_cube_policy(options, cube_ready)
+    chance_ready_clauses = build_cube_policy(
+        chance_ready_recipes, options, chance_ready
+    )
     print(
         f"\nPriority order with {best_cost[0]} clauses total, "
         f"{best_cost[1]} extra-sphere literals ({len(states)} states), "
-        f"plus {len(cube_clauses)} clauses for when to cube:"
+        f"plus {len(chance_ready_clauses)} clauses for when to produce:"
     )
-    cube_text = " OR ".join(
-        format_combinator_part(c, CUBE_INPUT.txt()) for c in sorted(cube_clauses)
+    chance_ready_text = " OR ".join(
+        format_combinator_part(c, chance_ready_mats.txt())
+        for c in sorted(chance_ready_clauses)
     )
-    print(f"  0. CUBE LXZ [needs LXZ]: {cube_text}")
+    print(f"  0. CHANCE LXZ [needs LXZ]: {chance_ready_text}")
     for pos, ri in enumerate(best_order):
         recipe = RECIPES[ri]
         if not built[ri]:
@@ -212,7 +219,7 @@ def print_combinators(
             format_combinator_part(c, recipe.in_.txt()) for c in sorted(built[ri])
         )
         print(f"  {pos + 1}. {recipe} [needs {recipe.in_.txt()}]: {clauses}")
-    return best_order, built, cube_clauses
+    return best_order, built, chance_ready_clauses
 
 
 def format_combinator_part(c: str, req: str):
