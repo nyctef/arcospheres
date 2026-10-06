@@ -490,8 +490,6 @@ def main():
     target = ArcoSet.from_str("LXZ")
     fold_limit = 30
     extras_count = 3
-    # cache distances for folding paths
-    choice_cache: dict[ArcoSet, dict[ArcoSet, int]] = {}
 
     recipe_mats = recipe_chance_1.in_
     assert recipe_mats == recipe_chance_2.in_
@@ -501,22 +499,31 @@ def main():
     # iterate over all states where the current set is [recipe mats + N extras]
     for extras_c in combinations_with_replacement("LXEPZTGO", extras_count):
         start = recipe_mats.add(ArcoSet.from_str("".join(extras_c)))
-        chance: WorldState = ("chance", start)
-        graph[chance] = {}
+        # we're about to run the production recipe, so our current state is "chance"
+        chance_state: WorldState = ("chance", start)
+        graph[chance_state] = {}
 
+        # since we're at a state where we want to try running a recipe, the
+        # first step is to investigate the state that happens when we get
+        # either output
         for chance_recipe in (recipe_chance_1, recipe_chance_2):
             label = chance_recipe.out.txt()
             after = chance_recipe.apply(start)
-            choice: WorldState = ("choice", after)
-            graph[chance][choice] = label
-            if choice not in graph:
-                if after not in choice_cache:
-                    choice_cache[after] = bfs_all_dist_containing_target(
-                        after, target, fold_limit
-                    )
-                graph[choice] = {
-                    ("chance", newState): dist
-                    for newState, dist in choice_cache[after].items()
+            # once we've run the production recipe, we then need to run a series
+            # of folds/inversions to get back into a ready state (except in edge cases
+            # where the current state had multiple copies of the recipe mats)
+            choice_state: WorldState = ("choice", after)
+            # record that choice_state is reachable from here with one of the random paths
+            graph[chance_state][choice_state] = label
+            if choice_state not in graph:
+                # do the search from choice_state to find out how to get back
+                # to ready states
+                target_paths_from_choice_state = bfs_all_dist_containing_target(
+                    after, target, fold_limit
+                )
+                graph[choice_state] = {
+                    ("chance", new_state): dist
+                    for new_state, dist in target_paths_from_choice_state.items()
                 }
 
     sccs = [scc for scc in tarjan_scc(graph) if len(scc) > 1]
