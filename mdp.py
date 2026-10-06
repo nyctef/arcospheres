@@ -5,6 +5,8 @@
 # - any time there's randomness (tesseract produces either output) then both edges remain in the component
 
 
+from collections import deque
+
 from arco_types import Graph, WorldState, PathLabel
 from tarjan import tarjan_scc
 
@@ -14,6 +16,7 @@ def _is_choice_edge(e: PathLabel) -> bool:
 
 
 def _induced(graph: Graph, vertices: set[WorldState]) -> Graph:
+    # the "induced subgraph" is the subgraph which only includes the specified vertices
     return {
         v: {w: e for w, e in graph.get(v, {}).items() if w in vertices}
         for v in vertices
@@ -46,7 +49,6 @@ def _prune_set(candidate: set[WorldState], graph: Graph) -> set[WorldState]:
 
 
 def prune_mec(scc: list[WorldState], graph: Graph) -> list[list[WorldState]]:
-    # need to remember to re-split SCCs after pruning, since we may have broken them apart
     work = [set(scc)]
     found: list[list[WorldState]] = []
     while work:
@@ -56,9 +58,48 @@ def prune_mec(scc: list[WorldState], graph: Graph) -> list[list[WorldState]]:
         pruned = _prune_set(candidate, graph)
         if len(pruned) <= 1:
             continue
+        # need to remember to re-split SCCs after pruning, since we may have broken them apart
         parts = [set(p) for p in tarjan_scc(_induced(graph, pruned)) if len(p) > 1]
         if len(parts) == 1 and parts[0] == pruned:
             found.append(list(pruned))
         else:
             work.extend(parts)
     return found
+
+
+def extract_strategy(mec: list[WorldState], graph: Graph, start: WorldState) -> Graph:
+    # a "strategy" is a non-maximal "end component" of a decision process.
+    # in order to simplify future calculations we look for subsets of the MEC
+    # that are still valid for chance nodes (ie for each chance node, all probabilistic
+    # outcomes remain within the component))
+    inside = set(mec)
+    strategy: Graph = {}
+    queue: deque[WorldState] = deque([start])
+    while queue:
+        node = queue.popleft()
+        if node in strategy:
+            continue
+        if node[0] == "chance":
+            # both paths must remain inside the component
+            strategy[node] = dict(graph[node])
+        else:
+            # for choice nodes, greedily pick a single edge going back into the component
+            options = [
+                (next, label) for next, label in graph[node].items() if next in inside
+            ]
+
+            def edge_cost(o: tuple[WorldState, PathLabel]) -> tuple[bool, int, str]:
+                return (
+                    # heuristic: prefer
+                    # 1. edges already in the strategy (False sorts before True)
+                    o[0] not in strategy,
+                    # 2. edges with smaller weights (int(o[1]))
+                    int(o[1]),
+                    # 3. tiebreaker: sort by name of target state
+                    o[0][1].txt(),
+                )
+
+            best_next, best_label = min(options, key=edge_cost)
+            strategy[node] = {best_next: best_label}
+        queue.extend(strategy[node])
+    return strategy

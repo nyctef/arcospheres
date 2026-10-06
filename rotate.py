@@ -3,31 +3,11 @@ from itertools import combinations, combinations_with_replacement
 from pathlib import Path
 from typing import Callable
 from tarjan import tarjan_scc
-from mdp import prune_mec
+from mdp import prune_mec, extract_strategy
 from recipe import Recipe, RECIPES
 from arcoset import ArcoSet
 from search import bfs_all_dist_containing_target, bfs_one_path_to_exact
 from arco_types import Graph, WorldState
-
-
-def extract_strategy(mec: list[WorldState], graph: Graph, start: WorldState) -> Graph:
-    inside = set(mec)
-    strategy: Graph = {}
-    queue: deque[WorldState] = deque([start])
-    while queue:
-        node = queue.popleft()
-        if node in strategy:
-            continue
-        if node[0] == "chance":
-            strategy[node] = dict(graph[node])
-        else:
-            options = [(t, l) for t, l in graph[node].items() if t in inside]
-            best_t, best_l = min(
-                options, key=lambda o: (o[0] not in strategy, int(o[1]), o[0][1].txt())
-            )
-            strategy[node] = {best_t: best_l}
-        queue.extend(strategy[node])
-    return strategy
 
 
 def build_policy(strategy: Graph) -> dict[ArcoSet, Recipe]:
@@ -530,8 +510,12 @@ def main():
 
     for i, mec in enumerate(mecs):
         chance_nodes = [n for n in mec if n[0] == "chance"]
+        strategies = [extract_strategy(mec, graph, n) for n in chance_nodes]
+        print(
+            f"{len(strategies)=}, {max(len(s) for s in strategies)=}, {min(len(s) for s in strategies)=}"
+        )
         strategy = min(
-            (extract_strategy(mec, graph, n) for n in chance_nodes),
+            strategies,
             key=lambda g: (len(g), min(n[1].txt() for n in g)),
         )
         # relabel choice edges with the actual folds
