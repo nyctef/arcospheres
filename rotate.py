@@ -11,13 +11,13 @@ from search import bfs_all_dist_containing_target, bfs_one_path_to_exact
 PathCache = dict[tuple[ArcoSet, ArcoSet], tuple[int, list[ArcoSet]] | None]
 
 
-# chance -> next move is nondeterministic/adversarial
+# chance -> next move is probabilistic/adversarial
 #           (ie one of the production recipes with randomized outputs)
 # choice -> we can choose the next move
 #           (ie a folding or inversion recipe)
 StateType = Literal["chance", "choice"]
 WorldState = tuple[StateType, ArcoSet]
-# paths between states are labelled with str in nondeterministic cases
+# paths between states are labelled with str in probabilistic cases
 # - if we get that output then we move to the next state
 # paths are lablelled with int when there's a specific sequence of
 # folds/inversions to get to the next state
@@ -516,7 +516,7 @@ def main():
             graph[chance_state][choice_state] = label
             if choice_state not in graph:
                 # do the search from choice_state to find out how to get back
-                # to ready states
+                # to ready/chance states
                 target_paths_from_choice_state = bfs_all_dist_containing_target(
                     after, recipe_mats, fold_limit
                 )
@@ -525,7 +525,15 @@ def main():
                     for new_state, dist in target_paths_from_choice_state.items()
                 }
 
+    # now trim down the graph to find the strongly-connected components
+    # - ie all sets of states where each state is reachable from the others by at least one path
     sccs = [scc for scc in tarjan_scc(graph) if len(scc) > 1]
+    # but then we need to trim it down further - since we can't control the outcome
+    # of a chance node, we have to find components where all possible chance outcomes loop
+    # back into the component. This is called a "maximal end component" (MEC) in a
+    # markov decision process (MDP)
+    # TODO: do we actually want to find a maximal end component? if there's some subset
+    # of the MEC that is also complete given the chance outcomes, that's less work to handle
     mecs = [mec for scc in sccs for mec in prune_mec(scc, graph)]
     print(f"{len(graph)} nodes, {len(sccs)} SCCs, {len(mecs)} MECs")
     for mec in mecs:
