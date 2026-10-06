@@ -1,28 +1,13 @@
 from collections import Counter, defaultdict, deque
 from itertools import combinations, combinations_with_replacement
 from pathlib import Path
-from typing import Callable, Literal, Union
+from typing import Callable
 from tarjan import tarjan_scc
 from mdp import prune_mec
 from recipe import Recipe, RECIPES
 from arcoset import ArcoSet
 from search import bfs_all_dist_containing_target, bfs_one_path_to_exact
-
-PathCache = dict[tuple[ArcoSet, ArcoSet], tuple[int, list[ArcoSet]] | None]
-
-
-# chance -> next move is probabilistic/adversarial
-#           (ie one of the production recipes with randomized outputs)
-# choice -> we can choose the next move
-#           (ie a folding or inversion recipe)
-StateType = Literal["chance", "choice"]
-WorldState = tuple[StateType, ArcoSet]
-# paths between states are labelled with str in probabilistic cases
-# - if we get that output then we move to the next state
-# paths are lablelled with int when there's a specific sequence of
-# folds/inversions to get to the next state
-PathLabel = Union[str, int]
-Graph = dict[WorldState, dict[WorldState, PathLabel]]
+from arco_types import Graph, WorldState
 
 
 def extract_strategy(mec: list[WorldState], graph: Graph, start: WorldState) -> Graph:
@@ -530,10 +515,9 @@ def main():
     sccs = [scc for scc in tarjan_scc(graph) if len(scc) > 1]
     # but then we need to trim it down further - since we can't control the outcome
     # of a chance node, we have to find components where all possible chance outcomes loop
-    # back into the component. This is called a "maximal end component" (MEC) in a
-    # markov decision process (MDP)
-    # TODO: do we actually want to find a maximal end component? if there's some subset
-    # of the MEC that is also complete given the chance outcomes, that's less work to handle
+    # back into the component. This is called a "end component" (MEC) in a
+    # markov decision process (MDP) and prune_mec currently trims down until it finds
+    # a maximal end component
     mecs = [mec for scc in sccs for mec in prune_mec(scc, graph)]
     print(f"{len(graph)} nodes, {len(sccs)} SCCs, {len(mecs)} MECs")
     for mec in mecs:

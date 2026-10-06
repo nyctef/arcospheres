@@ -5,28 +5,22 @@
 # - any time there's randomness (tesseract produces either output) then both edges remain in the component
 
 
-from typing import TypeVar
-
+from arco_types import Graph, WorldState, PathLabel
 from tarjan import tarjan_scc
 
-V = TypeVar("V")
-E = TypeVar("E")
-Graph = dict[V, dict[V, E]]
+
+def _is_choice_edge(e: PathLabel) -> bool:
+    return isinstance(e, int)
 
 
-def _is_choice_edge(e: object) -> bool:
-    # choice edges are labelled with a step count (possibly zero)
-    return str(e).isdigit()
-
-
-def _induced(graph: Graph[V, E], vertices: set[V]) -> Graph[V, E]:
+def _induced(graph: Graph, vertices: set[WorldState]) -> Graph:
     return {
         v: {w: e for w, e in graph.get(v, {}).items() if w in vertices}
         for v in vertices
     }
 
 
-def _prune_set(candidate: set[V], graph: Graph[V, E]) -> set[V]:
+def _prune_set(candidate: set[WorldState], graph: Graph) -> set[WorldState]:
     result = set(candidate)
     changed = True
     while changed:
@@ -51,10 +45,10 @@ def _prune_set(candidate: set[V], graph: Graph[V, E]) -> set[V]:
     return result
 
 
-def prune_mec(scc: list[V], graph: Graph[V, E]) -> list[list[V]]:
+def prune_mec(scc: list[WorldState], graph: Graph) -> list[list[WorldState]]:
     # need to remember to re-split SCCs after pruning, since we may have broken them apart
     work = [set(scc)]
-    found: list[list[V]] = []
+    found: list[list[WorldState]] = []
     while work:
         candidate = work.pop()
         if len(candidate) <= 1:
