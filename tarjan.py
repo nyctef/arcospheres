@@ -1,19 +1,15 @@
-from typing import TypeVar
-
-V = TypeVar("V")
-E = TypeVar("E")
-Graph = dict[V, dict[V, E]]
+from arco_types import Graph, WorldState
 
 
-def tarjan_scc(graph: Graph[V, E]):
+def tarjan_scc(graph: Graph):
     index_counter = 0
-    index: dict[V, int] = {}
-    lowlink: dict[V, int] = {}
-    on_stack: set[V] = set()
-    stack: list[V] = []
-    sccs: list[list[V]] = []
+    index: dict[WorldState, int] = {}
+    lowlink: dict[WorldState, int] = {}
+    on_stack: set[WorldState] = set()
+    stack: list[WorldState] = []
+    sccs: list[list[WorldState]] = []
 
-    def strongconnect(v: V):
+    def strongconnect(v: WorldState):
         nonlocal index_counter
         index[v] = index_counter
         lowlink[v] = index_counter
@@ -29,7 +25,7 @@ def tarjan_scc(graph: Graph[V, E]):
                 lowlink[v] = min(lowlink[v], index[w])
 
         if lowlink[v] == index[v]:
-            component: list[V] = []
+            component: list[WorldState] = []
             while True:
                 w = stack.pop()
                 on_stack.remove(w)
