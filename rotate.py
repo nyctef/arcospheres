@@ -1,12 +1,12 @@
 from collections import Counter, defaultdict, deque
 from itertools import combinations, combinations_with_replacement
-from pathlib import Path
 from typing import Callable
+from graphviz import print_strategy, print_graph
 from tarjan import tarjan_scc
 from mdp import prune_mec, extract_strategy
 from recipe import Recipe, RECIPES
 from arcoset import ArcoSet
-from search import bfs_all_dist_containing_target, bfs_one_path_to_exact
+from search import bfs_all_dist_containing_target
 from arco_types import Graph, WorldState
 
 
@@ -430,22 +430,6 @@ def print_policy(policy: dict[ArcoSet, Recipe]) -> None:
         print(f"  {name} when extras include: " + ", ".join(rules))
 
 
-def print_graph(graph: Graph, filename: str = "graph_output.txt"):
-    out_file = Path(__file__).parent / "scratch" / filename
-    out_file.parent.mkdir(exist_ok=True)
-
-    def name(n: WorldState) -> str:
-        return f"{n[0][0]}:{n[1].txt()}"
-
-    with out_file.open("w") as f:
-        f.write("digraph G {\n")
-        f.write('graph [overlap=scale, sep="+0.5"]; edge [len=1.0];\n')
-        for start, edges in graph.items():
-            for end, label in edges.items():
-                f.write(f'    "{name(start)}" -> "{name(end)}" [label="{label}"];\n')
-        f.write("}\n")
-
-
 def main():
     # state -> next state -> folding path or random output
     graph: Graph = {}
@@ -525,21 +509,7 @@ def main():
             strategies,
             key=lambda g: (len(g), min(n[1].txt() for n in g)),
         )
-        # relabel choice edges with the actual folds
-        labelled: Graph = {}
-        print(f"\nStrategy {i}: {len(strategy)} nodes")
-        for node, edges in strategy.items():
-            labelled[node] = {}
-            for target_node, label in edges.items():
-                if node[0] == "choice":
-                    # unfortunately we lost the fold path info, so reconstruct it
-                    folds = bfs_one_path_to_exact(node[1], target_node[1])
-                    label = ", ".join(str(f) for f in folds) or "(none)"
-                labelled[node][target_node] = label
-                print(
-                    f"  {node[0]}:{node[1].txt()} --[{label}]--> {target_node[0]}:{target_node[1].txt()}"
-                )
-        print_graph(labelled, f"strategy_{i}.dot")
+        print_strategy(i, strategy)
         cube_ready = {n[1] for n in strategy if n[0] == "chance"}
         order, built, cube_clauses = print_combinators(
             build_options(strategy), cube_ready
