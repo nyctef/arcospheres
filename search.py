@@ -20,7 +20,7 @@ def bfs_all_dist_containing_target(
             if recipe.can_apply(state):
                 nxt = recipe.apply(state)
                 if nxt not in dist:
-                    dist[nxt] = steps + 1
+                    dist[nxt] = steps + recipe.time
                     queue.append(nxt)
     return {s: d for s, d in dist.items() if s.contains(target)}
 

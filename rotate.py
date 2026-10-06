@@ -332,7 +332,7 @@ def simulate_combinators(
     cube_clauses: list[str],
 ) -> None:
     cube_ready = {n[1] for n in strategy if n[0] == "chance"}
-    cubes = [Recipe.from_str("LXZ -> PET"), Recipe.from_str("LXZ -> POG")]
+    cubes = [Recipe.from_str("LXZ -> PET", 20), Recipe.from_str("LXZ -> POG", 20)]
     rules = [
         (RECIPES[ri], [recipe_in_plus(RECIPES[ri], c) for c in built[ri]])
         for ri in order
@@ -450,9 +450,9 @@ def main():
     # state -> next state -> folding path or random output
     graph: Graph = {}
 
-    recipe_chance_1 = Recipe.from_str("LXZ -> PET")
-    recipe_chance_2 = Recipe.from_str("LXZ -> POG")
-    fold_limit = 30
+    recipe_chance_1 = Recipe.from_str("LXZ -> PET", 20)
+    recipe_chance_2 = Recipe.from_str("LXZ -> POG", 20)
+    fold_limit = 500
     extras_count = 3
 
     recipe_mats = recipe_chance_1.in_
@@ -509,11 +509,18 @@ def main():
     print_graph(graph)
 
     for i, mec in enumerate(mecs):
+        # prune the MEC down further to turn it into a "strategy" - where we have
+        # one choice per choice node (but still handle all outcomes for chance nodes)
+        #
+        # heuristic: we generate a bunch of different strategies based on a given starting
+        # node (which guarantees that the strategy includes at least one ready/chance state)
+        # and then pick the smallest-looking one
         chance_nodes = [n for n in mec if n[0] == "chance"]
         strategies = [extract_strategy(mec, graph, n) for n in chance_nodes]
         print(
             f"{len(strategies)=}, {max(len(s) for s in strategies)=}, {min(len(s) for s in strategies)=}"
         )
+        # pick the strategy with the fewest states, with tiebreaks by names of states
         strategy = min(
             strategies,
             key=lambda g: (len(g), min(n[1].txt() for n in g)),
@@ -525,6 +532,7 @@ def main():
             labelled[node] = {}
             for target_node, label in edges.items():
                 if node[0] == "choice":
+                    # unfortunately we lost the fold path info, so reconstruct it
                     folds = bfs_one_path_to_exact(node[1], target_node[1])
                     label = ", ".join(str(f) for f in folds) or "(none)"
                 labelled[node][target_node] = label
