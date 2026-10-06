@@ -487,7 +487,6 @@ def main():
 
     recipe_chance_1 = Recipe.from_str("LXZ -> PET")
     recipe_chance_2 = Recipe.from_str("LXZ -> POG")
-    target = ArcoSet.from_str("LXZ")
     fold_limit = 30
     extras_count = 3
 
@@ -519,7 +518,7 @@ def main():
                 # do the search from choice_state to find out how to get back
                 # to ready states
                 target_paths_from_choice_state = bfs_all_dist_containing_target(
-                    after, target, fold_limit
+                    after, recipe_mats, fold_limit
                 )
                 graph[choice_state] = {
                     ("chance", new_state): dist
