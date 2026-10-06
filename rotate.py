@@ -10,51 +10,6 @@ from search import bfs_all_dist_containing_target
 from arco_types import Graph, WorldState
 
 
-def build_policy(strategy: Graph) -> dict[ArcoSet, Recipe]:
-    targets = {n[1] for n in strategy if n[0] == "chance"}
-    starts = [n[1] for n in strategy if n[0] == "choice"]
-
-    succ: dict[ArcoSet, list[tuple[Recipe, ArcoSet]]] = {}
-    seen = set(starts)
-    stack = list(starts)
-    while stack:
-        state = stack.pop()
-        succ[state] = []
-        if state in targets:
-            continue
-        for recipe in RECIPES:
-            if recipe.can_apply(state):
-                nxt = recipe.apply(state)
-                succ[state].append((recipe, nxt))
-                if nxt not in seen:
-                    seen.add(nxt)
-                    stack.append(nxt)
-
-    preds: dict[ArcoSet, list[ArcoSet]] = defaultdict(list)
-    for state, outs in succ.items():
-        for _, nxt in outs:
-            preds[nxt].append(state)
-    dist = {t: 0 for t in targets if t in seen}
-    queue: deque[ArcoSet] = deque(dist)
-    while queue:
-        state = queue.popleft()
-        for pred in preds[state]:
-            if pred not in dist:
-                dist[pred] = dist[state] + 1
-                queue.append(pred)
-
-    policy: dict[ArcoSet, Recipe] = {}
-    pending = list(starts)
-    while pending:
-        state = pending.pop()
-        if state in targets or state in policy:
-            continue
-        recipe, nxt = next(o for o in succ[state] if dist.get(o[1]) == dist[state] - 1)
-        policy[state] = recipe
-        pending.append(nxt)
-    return policy
-
-
 def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:
     # for every state we might pass through on the way to a cube-ready state, all the
     # recipes that make progress (get one step closer to the nearest cube-ready state)
@@ -102,60 +57,6 @@ def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:
         options[state] = [r for r, n in succ[state] if dist.get(n) == dist[state] - 1]
         pending.extend(n for _, n in succ[state] if dist.get(n) == dist[state] - 1)
     return options
-
-
-def learn_decision_list(
-    options: dict[ArcoSet, list[Recipe]], size_penalty: float
-) -> list[tuple[Recipe, ArcoSet, int]]:
-    uncovered = set(options)
-    rules: list[tuple[Recipe, ArcoSet, int]] = []
-    while uncovered:
-        candidates: set[tuple[int, str]] = set()
-        for st in uncovered:
-            for ri, recipe in enumerate(RECIPES):
-                if recipe in options[st]:
-                    extras_txt = st.remove(recipe.in_).txt()
-                    for size in range(len(extras_txt) + 1):
-                        candidates.update(
-                            (ri, "".join(c)) for c in combinations(extras_txt, size)
-                        )
-        best = None
-        for ri, extras_txt in candidates:
-            recipe = RECIPES[ri]
-            pattern = recipe.in_.add(ArcoSet.from_str(extras_txt))
-            hit = [st for st in uncovered if st.contains(pattern)]
-            if not all(recipe in options[st] for st in hit):
-                continue
-            key = (
-                -len(hit) / (1 + size_penalty * len(extras_txt)),
-                len(extras_txt),
-                ri,
-                extras_txt,
-            )
-            if best is None or key < best[0]:
-                best = (key, recipe, ArcoSet.from_str(extras_txt), hit)
-        assert best is not None
-        _, recipe, extras, hit = best
-        rules.append((recipe, extras, len(hit)))
-        uncovered.difference_update(hit)
-    return rules
-
-
-def print_decision_list(options: dict[ArcoSet, list[Recipe]]) -> None:
-    # try a few ways of trading rule count against rule size and keep the shortest
-    results = [(learn_decision_list(options, p), p) for p in (0.0, 0.25, 0.5, 1.0, 2.0)]
-    rules, penalty = min(
-        results, key=lambda r: (len(r[0]), sum(len(e.txt()) for _, e, _ in r[0]))
-    )
-    print(
-        f"\nDecision list ({len(rules)} rules covering {len(options)} states, "
-        f"size_penalty={penalty}; first match wins):"
-    )
-    for i, (recipe, extras, n) in enumerate(rules):
-        extra_txt = f" + extras {extras.txt()}" if extras.txt() else ""
-        print(
-            f"  {i + 1:2}. if has {recipe.in_.txt()}{extra_txt}: {recipe}  ({n} states)"
-        )
 
 
 Clause = tuple[str, int]  # (extras text, bitmask of states it matches)
@@ -388,50 +289,6 @@ def simulate_combinators(
 
 def recipe_in_plus(recipe: Recipe, extras_txt: str) -> ArcoSet:
     return recipe.in_.add(ArcoSet.from_str(extras_txt))
-
-
-def print_policy(policy: dict[ArcoSet, Recipe]) -> None:
-    by_recipe: dict[str, tuple[Recipe, list[ArcoSet]]] = {}
-    for state, recipe in policy.items():
-        by_recipe.setdefault(str(recipe), (recipe, []))[1].append(state)
-
-    for name, (recipe, states) in sorted(by_recipe.items()):
-        print(f"\n{name}: {len(states)} states")
-        print("  " + " ".join(sorted(st.txt() for st in states)))
-
-        def matches(st: ArcoSet, extras: ArcoSet) -> bool:
-            return st.contains(recipe.in_.add(extras))
-
-        candidates: set[str] = set()
-        for st in states:
-            extras_txt = st.remove(recipe.in_).txt()
-            for size in range(len(extras_txt) + 1):
-                candidates.update("".join(c) for c in combinations(extras_txt, size))
-        valid = [
-            ArcoSet.from_str(c)
-            for c in candidates
-            if all(
-                str(policy[st]) == name
-                for st in policy
-                if matches(st, ArcoSet.from_str(c))
-            )
-        ]
-
-        uncovered = set(states)
-        rules: list[str] = []
-        while uncovered:
-            best = min(
-                valid,
-                key=lambda e: (
-                    -sum(1 for st in uncovered if matches(st, e)),
-                    len(e.txt()),
-                    e.txt(),
-                ),
-            )
-            covered = {st for st in uncovered if matches(st, best)}
-            rules.append(f"+{best.txt() or '(nothing)'} ({len(covered)} new)")
-            uncovered -= covered
-        print(f"  {name} when extras include: " + ", ".join(rules))
 
 
 def main():
