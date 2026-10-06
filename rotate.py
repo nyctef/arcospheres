@@ -477,8 +477,8 @@ def main():
     # source -> target -> path length
     graph: Graph = {}
 
-    cube1 = Recipe.from_str("LXZ -> PET")
-    cube2 = Recipe.from_str("LXZ -> POG")
+    recipe_chance_1 = Recipe.from_str("LXZ -> PET")
+    recipe_chance_2 = Recipe.from_str("LXZ -> POG")
     target = ArcoSet.from_str("LXZ")
     fold_limit = 30
     extras_count = 3
@@ -490,8 +490,9 @@ def main():
         chance: Node = ("chance", start)
         graph[chance] = {}
 
-        for label, cube in (("PET", cube1), ("POG", cube2)):
-            after = cube.apply(start)
+        for chance_recipe in (recipe_chance_1, recipe_chance_2):
+            label = chance_recipe.out.txt()
+            after = chance_recipe.apply(start)
             choice: Node = ("choice", after)
             graph[chance][choice] = label
             if choice not in graph:

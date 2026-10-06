@@ -37,7 +37,4 @@ RECIPES = [
     # inversion
     Recipe.from_str("LXEP -> ZTGO"),
     Recipe.from_str("ZTGO -> LXEP"),
-    # tesseract
-    # Recipe.from_str("LXZ -> TEP"),
-    # Recipe.from_str("LXZ -> GOP"),
 ]
