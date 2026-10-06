@@ -61,6 +61,7 @@ def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:
     targets = {n[1] for n in strategy if n[0] == "chance"}
     starts = [n[1] for n in strategy if n[0] == "choice"]
 
+    # successors: for each state, the full set of legal moves
     succ: dict[ArcoSet, list[tuple[Recipe, ArcoSet]]] = {}
     stack = list(starts)
     while stack:
@@ -76,6 +77,7 @@ def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:
                 succ[state].append((recipe, nxt))
                 stack.append(nxt)
 
+    # predecessors: inverse of the above
     preds: dict[ArcoSet, list[ArcoSet]] = defaultdict(list)
     for state, outs in succ.items():
         for _, nxt in outs:
@@ -89,6 +91,8 @@ def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:
                 dist[pred] = dist[state] + 1
                 queue.append(pred)
 
+    # for each state, only the set of recipes that make progress towards one of `targets`.
+    # avoids edges in `succ` that aren't useful.
     options: dict[ArcoSet, list[Recipe]] = {}
     pending = list(starts)
     while pending:
