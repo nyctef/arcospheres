@@ -1,7 +1,7 @@
 from collections import Counter, defaultdict, deque
 from itertools import combinations, combinations_with_replacement
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal, Union
 from tarjan import tarjan_scc
 from mdp import prune_mec
 from recipe import Recipe, RECIPES
@@ -11,16 +11,24 @@ from search import bfs_all_dist_containing_target, bfs_one_path_to_exact
 PathCache = dict[tuple[ArcoSet, ArcoSet], tuple[int, list[ArcoSet]] | None]
 
 
-# Nodes are either ("chance", state) (a state with LXZ about to go in the tesseract)
-# or ("choice", state)
-Node = tuple[str, ArcoSet]
-Graph = dict[Node, dict[Node, str]]
+# chance -> next move is nondeterministic/adversarial
+#           (ie one of the production recipes with randomized outputs)
+# choice -> we can choose the next move
+#           (ie a folding or inversion recipe)
+StateType = Literal["chance", "choice"]
+WorldState = tuple[StateType, ArcoSet]
+# paths between states are labelled with str in nondeterministic cases
+# - if we get that output then we move to the next state
+# paths are lablelled with int when there's a specific sequence of
+# folds/inversions to get to the next state
+PathLabel = Union[str, int]
+Graph = dict[WorldState, dict[WorldState, PathLabel]]
 
 
-def extract_strategy(mec: list[Node], graph: Graph, start: Node) -> Graph:
+def extract_strategy(mec: list[WorldState], graph: Graph, start: WorldState) -> Graph:
     inside = set(mec)
     strategy: Graph = {}
-    queue: deque[Node] = deque([start])
+    queue: deque[WorldState] = deque([start])
     while queue:
         node = queue.popleft()
         if node in strategy:
@@ -461,7 +469,7 @@ def print_graph(graph: Graph, filename: str = "graph_output.txt"):
     out_file = Path(__file__).parent / "scratch" / filename
     out_file.parent.mkdir(exist_ok=True)
 
-    def name(n: Node) -> str:
+    def name(n: WorldState) -> str:
         return f"{n[0][0]}:{n[1].txt()}"
 
     with out_file.open("w") as f:
@@ -474,7 +482,7 @@ def print_graph(graph: Graph, filename: str = "graph_output.txt"):
 
 
 def main():
-    # source -> target -> path length
+    # state -> next state -> folding path or random output
     graph: Graph = {}
 
     recipe_chance_1 = Recipe.from_str("LXZ -> PET")
@@ -482,18 +490,24 @@ def main():
     target = ArcoSet.from_str("LXZ")
     fold_limit = 30
     extras_count = 3
+    # cache distances for folding paths
     choice_cache: dict[ArcoSet, dict[ArcoSet, int]] = {}
 
+    recipe_mats = recipe_chance_1.in_
+    assert recipe_mats == recipe_chance_2.in_
+
+    # we're looking for cycles in the graph, and cycles we're interested in
+    # must include nodes where we have the ingredients for the recipe. so we
+    # iterate over all states where the current set is [recipe mats + N extras]
     for extras_c in combinations_with_replacement("LXEPZTGO", extras_count):
-        extras_str = "".join(extras_c)
-        start = ArcoSet.from_str("LXZ" + extras_str)
-        chance: Node = ("chance", start)
+        start = recipe_mats.add(ArcoSet.from_str("".join(extras_c)))
+        chance: WorldState = ("chance", start)
         graph[chance] = {}
 
         for chance_recipe in (recipe_chance_1, recipe_chance_2):
             label = chance_recipe.out.txt()
             after = chance_recipe.apply(start)
-            choice: Node = ("choice", after)
+            choice: WorldState = ("choice", after)
             graph[chance][choice] = label
             if choice not in graph:
                 if after not in choice_cache:
@@ -501,7 +515,8 @@ def main():
                         after, target, fold_limit
                     )
                 graph[choice] = {
-                    ("chance", s): str(d) for s, d in choice_cache[after].items()
+                    ("chance", newState): dist
+                    for newState, dist in choice_cache[after].items()
                 }
 
     sccs = [scc for scc in tarjan_scc(graph) if len(scc) > 1]
