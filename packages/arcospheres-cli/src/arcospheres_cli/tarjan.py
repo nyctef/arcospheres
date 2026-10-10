@@ -1,4 +1,4 @@
-from arco_types import Graph, WorldState
+from .arco_types import Graph, WorldState
 
 
 def tarjan_scc(graph: Graph):

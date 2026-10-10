@@ -1,6 +1,6 @@
-from arcoset import ArcoSet
+from .arcoset import ArcoSet
 from collections import deque
-from recipe import Recipe, RECIPES
+from .recipe import Recipe, RECIPES
 
 
 def bfs_all_dist_containing_target(

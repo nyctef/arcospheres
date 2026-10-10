@@ -1,5 +1,5 @@
-from arco_types import Graph, ArcoSet
-from recipe import Recipe, RECIPES, get_common_input
+from .arco_types import Graph, ArcoSet
+from .recipe import Recipe, RECIPES, get_common_input
 
 
 def simulate_combinators(

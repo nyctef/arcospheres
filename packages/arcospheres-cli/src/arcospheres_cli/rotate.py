@@ -1,13 +1,13 @@
 from itertools import combinations_with_replacement
-from graphviz import print_strategy, print_graph
-from policy import build_options, print_combinators
-from simulate import simulate_combinators
-from tarjan import tarjan_scc
-from mdp import prune_mec, extract_strategy
-from recipe import Recipe, get_common_input
-from arcoset import ArcoSet
-from search import bfs_all_dist_containing_target
-from arco_types import Graph, WorldState
+from .graphviz import print_strategy, print_graph
+from .policy import build_options, print_combinators
+from .simulate import simulate_combinators
+from .tarjan import tarjan_scc
+from .mdp import prune_mec, extract_strategy
+from .recipe import Recipe, get_common_input
+from .arcoset import ArcoSet
+from .search import bfs_all_dist_containing_target
+from .arco_types import Graph, WorldState
 
 
 def main():

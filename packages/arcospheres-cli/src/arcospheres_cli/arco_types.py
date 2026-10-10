@@ -1,5 +1,5 @@
 from typing import Literal, Union
-from arcoset import ArcoSet
+from .arcoset import ArcoSet
 
 # chance -> next move is probabilistic/adversarial
 #           (ie one of the production recipes with randomized outputs)

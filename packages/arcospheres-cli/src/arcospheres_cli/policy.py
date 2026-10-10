@@ -1,9 +1,9 @@
 from collections import Counter, defaultdict, deque
 from typing import Callable
 from itertools import combinations
-from arco_types import Graph
-from arcoset import ArcoSet
-from recipe import RECIPES, Recipe, get_common_input
+from .arco_types import Graph
+from .arcoset import ArcoSet
+from .recipe import RECIPES, Recipe, get_common_input
 
 
 def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:

@@ -1,4 +1,4 @@
-from arcoset import ArcoSet
+from .arcoset import ArcoSet
 from dataclasses import dataclass
 
 

@@ -1,0 +1,13 @@
+[project]
+name = "arcospheres-cli"
+version = "0.1.0"
+description = "Arcosphere recipe search and simulation CLI"
+requires-python = ">=3.15"
+dependencies = []
+
+[project.scripts]
+arco-rotate = "arcospheres_cli.rotate:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

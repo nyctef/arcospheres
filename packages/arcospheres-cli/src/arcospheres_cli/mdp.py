@@ -7,8 +7,8 @@
 
 from collections import deque
 
-from arco_types import Graph, WorldState, PathLabel
-from tarjan import tarjan_scc
+from .arco_types import Graph, WorldState, PathLabel
+from .tarjan import tarjan_scc
 
 
 def _is_choice_edge(e: PathLabel) -> bool:

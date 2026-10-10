@@ -1,6 +1,6 @@
 from pathlib import Path
-from arco_types import Graph, WorldState
-from search import bfs_one_path_to_exact
+from .arco_types import Graph, WorldState
+from .search import bfs_one_path_to_exact
 
 
 def print_graph(graph: Graph, filename: str = "graph_output.txt"):
