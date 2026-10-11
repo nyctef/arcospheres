@@ -1,20 +1,20 @@
 import * as THREE from "three";
+import { PROJECTION_CENTER } from "./coords4d.js";
+import { createTesseract } from "./object4d.js";
 (function (window) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.z = 3;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
   document.body.appendChild(renderer.domElement);
 
-  const sphere = new THREE.Mesh(
-    new THREE.SphereGeometry(1, 32, 32),
-    new THREE.MeshStandardMaterial({ color: 0x44aaff, wireframe: true }),
-  );
-  scene.add(sphere);
-  scene.add(new THREE.AmbientLight(0xffffff, 1));
+  const tesseract = createTesseract(new THREE.LineBasicMaterial({ color: 0x44aaff }));
+  scene.add(tesseract.object3d);
+
+  const target = PROJECTION_CENTER;
+  const orbitRadius = 3;
 
   window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -22,8 +22,14 @@ import * as THREE from "three";
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  renderer.setAnimationLoop(() => {
-    sphere.rotation.y += 0.01;
+  renderer.setAnimationLoop((time) => {
+    const angle = time * 0.0005;
+    camera.position.set(
+      target.x + Math.sin(angle) * orbitRadius,
+      target.y + 1,
+      target.z + Math.cos(angle) * orbitRadius,
+    );
+    camera.lookAt(target);
     renderer.render(scene, camera);
   });
 })(window);
