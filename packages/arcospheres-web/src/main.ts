@@ -14,7 +14,15 @@ import { createTesseract } from "./object4d";
   scene.add(tesseract.object3d);
 
   const target = PROJECTION_CENTER;
-  const orbitRadius = 3;
+  camera.position.set(target.x + 2, target.y + 1, target.z + 3);
+  camera.lookAt(target);
+
+  const center4d = new THREE.Vector4(0.5, 0.5, 0.5, 0.5);
+  const rotation4d = new THREE.Matrix4();
+  const rotatingVertices = tesseract.vertices.map((vertex) => ({
+    vertex,
+    offset: vertex.clone().sub(center4d),
+  }));
 
   window.addEventListener("resize", (): void => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -24,12 +32,18 @@ import { createTesseract } from "./object4d";
 
   renderer.setAnimationLoop((time: number): void => {
     const angle = time * 0.0005;
-    camera.position.set(
-      target.x + Math.sin(angle) * orbitRadius,
-      target.y + 1,
-      target.z + Math.cos(angle) * orbitRadius,
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    rotation4d.set(
+      cosine, 0, 0, -sine,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      sine, 0, 0, cosine,
     );
-    camera.lookAt(target);
+    for (const { vertex, offset } of rotatingVertices) {
+      vertex.copy(offset).applyMatrix4(rotation4d).add(center4d);
+    }
+    tesseract.updateProjection();
     renderer.render(scene, camera);
   });
 })(window);
