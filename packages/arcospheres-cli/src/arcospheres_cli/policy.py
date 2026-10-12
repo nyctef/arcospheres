@@ -123,6 +123,106 @@ def build_cube_policy(
     return clauses
 
 
+def simplify_combinators(
+    chance_recipes: list[Recipe],
+    chance_ready: set[ArcoSet],
+    order: list[int],
+    built: list[list[str]],
+    chance_ready_clauses: list[str],
+) -> tuple[list[int], list[list[str]], list[str]]:
+    from .simulate import validate_combinators
+
+    validate_combinators(chance_recipes, chance_ready, order, built, chance_ready_clauses)
+    production = chance_ready_clauses[:]
+
+    def valid(priority: list[int], candidate: list[list[str]]) -> bool:
+        try:
+            validate_combinators(
+                chance_recipes, chance_ready, priority, candidate, production
+            )
+        except AssertionError:
+            return False
+        return True
+
+    def reduce(priority: list[int], candidate: list[list[str]]) -> list[list[str]]:
+        result = [clauses[:] for clauses in candidate]
+        changed = True
+        while changed:
+            changed = False
+            for recipe in priority:
+                for clause in result[recipe][:]:
+                    candidate = [clauses[:] for clauses in result]
+                    candidate[recipe].remove(clause)
+                    if valid(priority, candidate):
+                        result = candidate
+                        changed = True
+                        break
+                    for position in range(len(clause)):
+                        weaker = clause[:position] + clause[position + 1 :]
+                        candidate = [clauses[:] for clauses in result]
+                        candidate[recipe] = sorted({
+                            weaker if current == clause else current
+                            for current in candidate[recipe]
+                        })
+                        if valid(priority, candidate):
+                            result = candidate
+                            changed = True
+                            break
+                    if changed:
+                        break
+                if changed:
+                    break
+        return result
+
+    def cost(candidate: list[list[str]]) -> tuple[int, int]:
+        return (
+            sum(len(clauses) for clauses in candidate),
+            sum(len(clause) for clauses in candidate for clause in clauses),
+        )
+
+    priority = order[:]
+    result = reduce(priority, built)
+    improved = True
+    while improved:
+        improved = False
+        for first in range(len(priority)):
+            for second in range(first + 1, len(priority)):
+                trial = priority[:]
+                trial[first], trial[second] = trial[second], trial[first]
+                if not valid(trial, result):
+                    continue
+                candidate = reduce(trial, result)
+                if cost(candidate) < cost(result):
+                    priority, result = trial, candidate
+                    improved = True
+                    break
+            if improved:
+                break
+    changed = True
+    while changed:
+        changed = False
+        for clause in production[:]:
+            candidates = [
+                sorted({
+                    clause[:position] + clause[position + 1 :] if current == clause else current
+                    for current in production
+                })
+                for position in range(len(clause))
+            ]
+            candidates.append([current for current in production if current != clause])
+            for candidate in candidates:
+                try:
+                    validate_combinators(chance_recipes, chance_ready, priority, result, candidate)
+                except AssertionError:
+                    continue
+                production = candidate
+                changed = True
+                break
+            if changed:
+                break
+    return priority, result, production
+
+
 def print_combinators(
     chance_ready_recipes: list[Recipe],
     options: dict[ArcoSet, list[Recipe]],
@@ -200,6 +300,13 @@ def print_combinators(
     assert built is not None
     chance_ready_clauses = build_cube_policy(
         chance_ready_recipes, options, chance_ready
+    )
+    best_order, built, chance_ready_clauses = simplify_combinators(
+        chance_ready_recipes, chance_ready, best_order, built, chance_ready_clauses
+    )
+    best_cost = (
+        sum(len(clauses) for clauses in built),
+        sum(len(clause) for clauses in built for clause in clauses),
     )
     print(
         f"\nPriority order with {best_cost[0]} clauses total, "

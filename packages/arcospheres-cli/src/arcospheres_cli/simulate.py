@@ -2,17 +2,16 @@ from .arco_types import Graph, ArcoSet
 from .recipe import Recipe, RECIPES, get_common_input
 
 
-def simulate_combinators(
+def validate_combinators(
     chance_recipes: list[Recipe],
-    strategy: Graph,
+    chance_ready: set[ArcoSet],
     order: list[int],
     built: list[list[str]],
     chance_ready_clauses: list[str],
-) -> None:
+) -> tuple[int, int]:
 
     chance_recipe_mats = get_common_input(chance_recipes)
 
-    chance_ready = {n[1] for n in strategy if n[0] == "chance"}
     rules = [
         (RECIPES[ri], [recipe_in_plus(RECIPES[ri], c) for c in built[ri]])
         for ri in order
@@ -35,6 +34,7 @@ def simulate_combinators(
     runs = 0
     max_folds = 0
     for start in chance_ready:
+        assert should_produce(start), f"MISSED PRODUCTION: chance rule silent at {start}"
         for chance_recipe in chance_recipes:
             state = chance_recipe.apply(start)
             visited = {state}
@@ -58,6 +58,20 @@ def simulate_combinators(
                 visited.add(state)
             runs += 1
             max_folds = max(max_folds, folds)
+    return runs, max_folds
+
+
+def simulate_combinators(
+    chance_recipes: list[Recipe],
+    strategy: Graph,
+    order: list[int],
+    built: list[list[str]],
+    chance_ready_clauses: list[str],
+) -> None:
+    chance_ready = {node[1] for node in strategy if node[0] == "chance"}
+    runs, max_folds = validate_combinators(
+        chance_recipes, chance_ready, order, built, chance_ready_clauses
+    )
     print(
         f"Simulation OK: {len(chance_ready)} chance-ready states x 2 outcomes = {runs} runs, "
         f"all production exactly at chance-ready states (max {max_folds} folds)"

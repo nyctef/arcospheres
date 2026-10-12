@@ -3,7 +3,7 @@ from .graphviz import print_strategy, print_graph
 from .policy import build_options, print_combinators
 from .simulate import simulate_combinators
 from .tarjan import tarjan_scc
-from .mdp import prune_mec, extract_strategy
+from .mdp import prune_mec
 from .recipe import Recipe, get_common_input
 from .arcoset import ArcoSet
 from .search import bfs_all_dist_containing_target
@@ -73,22 +73,11 @@ def main():
     print_graph(graph)
 
     for i, mec in enumerate(mecs):
-        # prune the MEC down further to turn it into a "strategy" - where we have
-        # one choice per choice node (but still handle all outcomes for chance nodes)
-        #
-        # heuristic: we generate a bunch of different strategies based on a given starting
-        # node (which guarantees that the strategy includes at least one ready/chance state)
-        # and then pick the smallest-looking one
-        chance_nodes = [n for n in mec if n[0] == "chance"]
-        strategies = [extract_strategy(mec, graph, n) for n in chance_nodes]
-        print(
-            f"{len(strategies)=}, {max(len(s) for s in strategies)=}, {min(len(s) for s in strategies)=}"
-        )
-        # pick the strategy with the fewest states, with tiebreaks by names of states
-        strategy = min(
-            strategies,
-            key=lambda g: (len(g), min(n[1].txt() for n in g)),
-        )
+        inside = set(mec)
+        strategy = {
+            node: {target: label for target, label in graph[node].items() if target in inside}
+            for node in mec
+        }
         print_strategy(i, strategy)
         chance_ready = {n[1] for n in strategy if n[0] == "chance"}
         order, built, chance_ready_clauses = print_combinators(
