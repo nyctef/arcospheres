@@ -65,9 +65,15 @@ import type { RotationAngles } from "./rotation4d";
     input.max = "180";
     input.step = "1";
     input.value = "0";
+    let dragging = false;
+    input.addEventListener("pointerdown", (): void => { dragging = true; });
+    window.addEventListener("pointerup", (): void => { dragging = false; });
+    window.addEventListener("pointercancel", (): void => { dragging = false; });
     input.addEventListener("input", (): void => {
-      angles[id] = THREE.MathUtils.degToRad(input.valueAsNumber);
-      output.value = `${input.value}\u00b0`;
+      const degrees = dragging && Math.abs(input.valueAsNumber) <= 10 ? 0 : input.valueAsNumber;
+      input.value = String(degrees);
+      angles[id] = THREE.MathUtils.degToRad(degrees);
+      output.value = `${degrees}\u00b0`;
       render();
     });
     row.append(label, output, input);
