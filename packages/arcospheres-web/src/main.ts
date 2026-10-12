@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import { PROJECTION_CENTER } from "./coords4d.js";
-import { createTesseract } from "./object4d.js";
-(function (window) {
+import { PROJECTION_CENTER } from "./coords4d";
+import { createTesseract } from "./object4d";
+(function (window: Window): void {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
 
@@ -16,13 +16,13 @@ import { createTesseract } from "./object4d.js";
   const target = PROJECTION_CENTER;
   const orbitRadius = 3;
 
-  window.addEventListener("resize", () => {
+  window.addEventListener("resize", (): void => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  renderer.setAnimationLoop((time) => {
+  renderer.setAnimationLoop((time: number): void => {
     const angle = time * 0.0005;
     camera.position.set(
       target.x + Math.sin(angle) * orbitRadius,
