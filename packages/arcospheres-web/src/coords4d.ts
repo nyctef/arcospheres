@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import type { Position4D } from "./types";
 
 /** Point that the 4th dimension is projected towards. */
 export const PROJECTION_CENTER: THREE.Vector3 = new THREE.Vector3(0.5, 0.5, 0.5);
@@ -12,7 +11,7 @@ export const PROJECTION_DISTANCE: number = 1;
  * `center` by a factor that shrinks as w grows.
  */
 export function project4to3(
-  [x, y, z, w]: Position4D,
+  { x, y, z, w }: THREE.Vector4,
   center: THREE.Vector3 = PROJECTION_CENTER,
   distance: number = PROJECTION_DISTANCE,
   out: THREE.Vector3 = new THREE.Vector3(),

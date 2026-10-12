@@ -1,11 +1,9 @@
-import type { BufferGeometry, LineSegments, Material } from "three";
-
-export type Position4D = readonly [x: number, y: number, z: number, w: number];
+import type { BufferGeometry, LineSegments, Material, Vector4 } from "three";
 
 export type Edge4D = readonly [start: number, end: number];
 
 export interface Object4DGeometry {
-  readonly vertices: readonly Position4D[];
+  readonly vertices: readonly Vector4[];
   readonly edges: readonly Edge4D[];
 }
 

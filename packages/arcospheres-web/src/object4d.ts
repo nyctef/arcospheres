@@ -1,15 +1,15 @@
 import * as THREE from "three";
 import { project4to3 } from "./coords4d";
-import type { Edge4D, Position4D, Wireframe4D } from "./types";
+import type { Edge4D, Wireframe4D } from "./types";
 
 /** A wireframe 4D object: 4D vertices plus edges (pairs of vertex indices). */
 export class Object4D implements Wireframe4D {
-  readonly vertices: readonly Position4D[];
+  readonly vertices: readonly THREE.Vector4[];
   readonly edges: readonly Edge4D[];
   readonly object3d: THREE.LineSegments<THREE.BufferGeometry, THREE.Material | THREE.Material[]>;
 
   constructor(
-    vertices: readonly Position4D[],
+    vertices: readonly THREE.Vector4[],
     edges: readonly Edge4D[],
     material: THREE.Material | THREE.Material[],
   ) {
@@ -44,14 +44,14 @@ export class Object4D implements Wireframe4D {
 
 /** Unit tesseract with vertices at every combination of 0/1 in x,y,z,w. */
 export function createTesseract(material: THREE.Material | THREE.Material[]): Object4D {
-  const vertices: Position4D[] = [];
+  const vertices: THREE.Vector4[] = [];
   for (let vertexIndex = 0; vertexIndex < 16; vertexIndex++) {
-    vertices.push([
+    vertices.push(new THREE.Vector4(
       vertexIndex & 1,
       (vertexIndex >> 1) & 1,
       (vertexIndex >> 2) & 1,
       (vertexIndex >> 3) & 1,
-    ]);
+    ));
   }
   const edges: Edge4D[] = [];
   for (let vertexIndex = 0; vertexIndex < 16; vertexIndex++) {
