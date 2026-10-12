@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { PROJECTION_CENTER } from "./coords4d";
+import { createCornerBillboards } from "./billboards";
+import { PROJECTION_CENTER, project4to3 } from "./coords4d";
 import { createDepthLineMaterial } from "./material";
 import { createTesseract } from "./object4d";
 (function (window: Window): void {
@@ -13,6 +14,10 @@ import { createTesseract } from "./object4d";
 
   const tesseract = createTesseract(createDepthLineMaterial());
   scene.add(tesseract.object3d);
+  const billboards = createCornerBillboards(tesseract.vertices);
+  for (const { sprite } of billboards) {
+    scene.add(sprite);
+  }
 
   const target = PROJECTION_CENTER;
   camera.position.set(target.x + 2, target.y + 1, target.z + 3);
@@ -45,6 +50,9 @@ import { createTesseract } from "./object4d";
       vertex.copy(offset).applyMatrix4(rotation4d).add(center4d);
     }
     tesseract.updateProjection();
+    for (const { vertex, sprite } of billboards) {
+      project4to3(vertex, undefined, undefined, sprite.position);
+    }
     renderer.render(scene, camera);
   });
 })(window);
