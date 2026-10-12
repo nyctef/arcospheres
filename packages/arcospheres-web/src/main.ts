@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { PROJECTION_CENTER } from "./coords4d";
+import { createDepthLineMaterial } from "./material";
 import { createTesseract } from "./object4d";
 (function (window: Window): void {
   const scene = new THREE.Scene();
@@ -10,7 +11,7 @@ import { createTesseract } from "./object4d";
   renderer.setPixelRatio(window.devicePixelRatio);
   document.body.appendChild(renderer.domElement);
 
-  const tesseract = createTesseract(new THREE.LineBasicMaterial({ color: 0x44aaff }));
+  const tesseract = createTesseract(createDepthLineMaterial());
   scene.add(tesseract.object3d);
 
   const target = PROJECTION_CENTER;
