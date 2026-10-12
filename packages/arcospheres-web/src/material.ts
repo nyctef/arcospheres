@@ -11,9 +11,9 @@ export interface DepthLineMaterialOptions {
 export function createDepthLineMaterial({
   color = 0x44aaff,
   nearDistance = 2,
-  farDistance = 6,
-  nearBrightness = 1.15,
-  farBrightness = 0.85,
+  farDistance = 4,
+  nearBrightness = 2,
+  farBrightness = 0.2,
 }: DepthLineMaterialOptions = {}): THREE.ShaderMaterial {
   if (nearDistance < 0 || farDistance <= nearDistance) {
     throw new RangeError("Depth fade distances must satisfy 0 <= nearDistance < farDistance");
