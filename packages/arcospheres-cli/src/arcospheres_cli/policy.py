@@ -75,10 +75,11 @@ def build_combinators(
             continue
         bad = unhandled & ~allowed[ri]
         valid = [(txt, m) for txt, m in candidates[ri] if not (m & bad)]
-        max_by: Callable[[tuple[str, int]], tuple[int, int, int]] = lambda c: (
+        max_by: Callable[[tuple[str, int]], tuple[int, int, int, str]] = lambda c: (
             (c[1] & must).bit_count(),
             (c[1] & unhandled).bit_count(),
             -len(c[0]),
+            c[0],
         )
         while must:
             best = max(valid, key=max_by)

@@ -19,7 +19,7 @@ def _induced(graph: Graph, vertices: set[WorldState]) -> Graph:
     # the "induced subgraph" is the subgraph which only includes the specified vertices
     return {
         v: {w: e for w, e in graph.get(v, {}).items() if w in vertices}
-        for v in vertices
+        for v in sorted(vertices, key=lambda node: (node[0], node[1].txt()))
     }
 
 
@@ -61,7 +61,7 @@ def prune_mec(scc: list[WorldState], graph: Graph) -> list[list[WorldState]]:
         # need to remember to re-split SCCs after pruning, since we may have broken them apart
         parts = [set(p) for p in tarjan_scc(_induced(graph, pruned)) if len(p) > 1]
         if len(parts) == 1 and parts[0] == pruned:
-            found.append(list(pruned))
+            found.append(sorted(pruned, key=lambda node: (node[0], node[1].txt())))
         else:
             work.extend(parts)
     return found
