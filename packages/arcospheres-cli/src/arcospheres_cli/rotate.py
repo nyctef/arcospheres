@@ -14,10 +14,10 @@ def main():
     # state -> next state -> folding path or random output
     graph: Graph = {}
 
-    recipe_chance_1 = Recipe.from_str("LXZ -> PET", 20)
-    recipe_chance_2 = Recipe.from_str("LXZ -> POG", 20)
+    recipe_chance_1 = Recipe.from_str("LXEPZOTG -> EETTLLZZ", 20)
+    recipe_chance_2 = Recipe.from_str("LXEPZOTG -> EPOGPPZZ", 20)
     fold_limit = 500
-    extras_count = 3
+    extras_count = 1
 
     chance_ready_recipes = [recipe_chance_1, recipe_chance_2]
     recipe_mats = get_common_input(chance_ready_recipes)

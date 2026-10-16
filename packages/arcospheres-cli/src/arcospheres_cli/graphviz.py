@@ -3,8 +3,17 @@ from .arco_types import Graph, WorldState
 from .search import bfs_one_path_to_exact
 
 
+def _get_root():
+    current = Path(__file__).parent
+    while current.parent != current:
+        if (current / "scratch").exists():
+            return current
+        current = current.parent
+    return current
+
+
 def print_graph(graph: Graph, filename: str = "graph_output.txt"):
-    out_file = Path(__file__).parent / "scratch" / filename
+    out_file = _get_root() / "scratch" / filename
     out_file.parent.mkdir(exist_ok=True)
 
     def name(n: WorldState) -> str:

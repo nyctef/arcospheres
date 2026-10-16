@@ -209,7 +209,7 @@ def print_combinators(
         format_combinator_part(c, chance_ready_mats.txt())
         for c in sorted(chance_ready_clauses)
     )
-    print(f"  0. CHANCE LXZ [needs LXZ]: {chance_ready_text}")
+    print(f"  0. Production [needs {chance_ready_mats.txt()}]: {chance_ready_text}")
     for pos, ri in enumerate(best_order):
         recipe = RECIPES[ri]
         if not built[ri]:
