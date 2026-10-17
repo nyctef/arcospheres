@@ -1,6 +1,8 @@
 from collections import Counter, defaultdict, deque
-from typing import Callable
+from typing import Literal
 from itertools import combinations
+
+from attr import dataclass
 from .arco_types import Graph
 from .arcoset import ArcoSet
 from .recipe import RECIPES, Recipe, get_common_input
@@ -58,168 +60,70 @@ def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:
 Clause = tuple[str, int]  # (extras text, bitmask of states it matches)
 
 
-def build_combinators(
-    order: list[int],
-    allowed: list[int],
-    candidates: list[list[Clause]],
-    all_states: int,
-) -> list[list[str]] | None:
-    unhandled = all_states
-    result: list[list[str]] = [[] for _ in RECIPES]
-    for pos, ri in enumerate(order):
-        later = 0
-        for rj in order[pos + 1 :]:
-            later |= allowed[rj]
-        must = unhandled & allowed[ri] & ~later
-        if not must:
-            continue
-        bad = unhandled & ~allowed[ri]
-        valid = [(txt, m) for txt, m in candidates[ri] if not (m & bad)]
-        max_by: Callable[[tuple[str, int]], tuple[int, int, int]] = lambda c: (
-            (c[1] & must).bit_count(),
-            (c[1] & unhandled).bit_count(),
-            -len(c[0]),
+@dataclass
+class CombinatorClause:
+    leftsignal: str  # future: expand to union(signal, constant)
+    comparison: Literal["=", ">="]  # ...
+    rightconstant: int
+
+    def __str__(self) -> str:
+        return f"{self.leftsignal}{self.comparison}{self.rightconstant}"
+
+
+@dataclass
+class And:
+    clauses: list[CombinatorClause]
+
+    def __str__(self) -> str:
+        return " AND ".join(str(c) for c in self.clauses)
+
+
+@dataclass
+class Or:
+    clauses: list[And]
+
+    def __str__(self) -> str:
+        return " OR ".join(f"({a})" for a in self.clauses)
+
+
+def build_policy(
+    cube_ready: list[ArcoSet],
+) -> Or:
+
+    def to_and(ars: ArcoSet) -> And:
+        counts = ars.as_dict()
+        return And(
+            [
+                CombinatorClause(leftsignal=char, comparison="=", rightconstant=count)
+                for char, count in counts.items()
+            ]
         )
-        while must:
-            best = max(valid, key=max_by)
-            if not (best[1] & must):
-                return None
-            result[ri].append(best[0])
-            unhandled &= ~best[1]
-            must &= ~best[1]
-    return result if not unhandled else None
 
-
-def build_cube_policy(
-    chance_ready_recipes: list[Recipe],
-    options: dict[ArcoSet, list[Recipe]],
-    cube_ready: set[ArcoSet],
-) -> list[str]:
-    chance_recipe_mats = get_common_input(chance_ready_recipes)
-
-    forbidden = [
-        st for st in options if st.contains(chance_recipe_mats) and st not in cube_ready
-    ]
-    texts: set[str] = set()
-    for st in cube_ready:
-        extras_txt = st.remove(chance_recipe_mats).txt()
-        for size in range(len(extras_txt) + 1):
-            texts.update("".join(c) for c in combinations(extras_txt, size))
-
-    def matches(st: ArcoSet, txt: str) -> bool:
-        return st.contains(chance_recipe_mats.add(ArcoSet.from_str(txt)))
-
-    valid = sorted(t for t in texts if not any(matches(f, t) for f in forbidden))
-    uncovered = set(cube_ready)
-    clauses: list[str] = []
-    while uncovered:
-        best = max(
-            valid,
-            key=lambda t: (sum(1 for st in uncovered if matches(st, t)), -len(t), t),
-        )
-        clauses.append(best)
-        uncovered = {st for st in uncovered if not matches(st, best)}
-    return clauses
+    return Or([to_and(st) for st in cube_ready])
 
 
 def print_combinators(
     chance_ready_recipes: list[Recipe],
     options: dict[ArcoSet, list[Recipe]],
     chance_ready: set[ArcoSet],
-) -> tuple[list[int], list[list[str]], list[str]]:
-    import random
-
+):
     chance_ready_mats = get_common_input(chance_ready_recipes)
 
-    states = list(options)
-    bit = {st: 1 << i for i, st in enumerate(states)}
-    all_states = (1 << len(states)) - 1
-    allowed = [0] * len(RECIPES)
-    for st, rs in options.items():
-        for r in rs:
-            allowed[RECIPES.index(r)] |= bit[st]
-    used = [ri for ri in range(len(RECIPES)) if allowed[ri]]
+    options_per_recipe: dict[Recipe, list[ArcoSet]] = defaultdict(list)
+    for ars, recipes in options.items():
+        # the `options` we're passed in from build_options should be all
+        # the cases where picking that recipe makes progress, so for now
+        # let's just pick one arbitrarily. can add back some more
+        # optimization later.
+        options_per_recipe[recipes[0]].append(ars)
 
-    candidates: list[list[Clause]] = [[] for _ in RECIPES]
-    for ri in used:
-        recipe = RECIPES[ri]
-        by_mask: dict[int, str] = {}
-        texts: set[str] = set()
-        for st in states:
-            if allowed[ri] & bit[st]:
-                extras_txt = st.remove(recipe.in_).txt()
-                for size in range(len(extras_txt) + 1):
-                    texts.update("".join(c) for c in combinations(extras_txt, size))
-        for txt in texts:
-            pattern = recipe.in_.add(ArcoSet.from_str(txt))
-            mask = 0
-            for st in states:
-                if st.contains(pattern):
-                    mask |= bit[st]
-            if mask not in by_mask or (len(txt), txt) < (
-                len(by_mask[mask]),
-                by_mask[mask],
-            ):
-                by_mask[mask] = txt
-        candidates[ri] = [(txt, m) for m, txt in by_mask.items()]
-
-    def cost(order: list[int]) -> tuple[int, int] | None:
-        built = build_combinators(order, allowed, candidates, all_states)
-        if built is None:
-            return None
-        return (
-            sum(len(c) for c in built),
-            sum(len(t) for c in built for t in c),
-        )
-
-    rng = random.Random(0)
-    best_order: list[int] = []
-    best_cost = (10**9, 10**9)
-    for _ in range(25):
-        order = used[:]
-        rng.shuffle(order)
-        current = cost(order)
-        assert current is not None
-        improved = True
-        while improved:
-            improved = False
-            for i in range(len(order)):
-                for j in range(len(order)):
-                    if i == j:
-                        continue
-                    trial = order[:]
-                    trial.insert(j, trial.pop(i))
-                    c = cost(trial)
-                    if c is not None and c < current:
-                        order, current, improved = trial, c, True
-        if current < best_cost:
-            best_order, best_cost = order, current
-
-    built = build_combinators(best_order, allowed, candidates, all_states)
-    assert built is not None
-    chance_ready_clauses = build_cube_policy(
-        chance_ready_recipes, options, chance_ready
-    )
-    print(
-        f"\nPriority order with {best_cost[0]} clauses total, "
-        f"{best_cost[1]} extra-sphere literals ({len(states)} states), "
-        f"plus {len(chance_ready_clauses)} clauses for when to produce:"
-    )
-    chance_ready_text = " OR ".join(
-        format_combinator_part(c, chance_ready_mats.txt())
-        for c in sorted(chance_ready_clauses)
-    )
-    print(f"  0. Production [needs {chance_ready_mats.txt()}]: {chance_ready_text}")
-    for pos, ri in enumerate(best_order):
-        recipe = RECIPES[ri]
-        if not built[ri]:
-            print(f"  {pos + 1}. {recipe}: never needed")
-            continue
-        clauses = " OR ".join(
-            format_combinator_part(c, recipe.in_.txt()) for c in sorted(built[ri])
-        )
-        print(f"  {pos + 1}. {recipe} [needs {recipe.in_.txt()}]: {clauses}")
-    return best_order, built, chance_ready_clauses
+    production_clauses = build_policy(list(sorted(chance_ready)))
+    folding_clauses: dict[Recipe, Or] = {
+        r: build_policy(options_per_recipe[r]) for r in options_per_recipe
+    }
+    print(f"  0. Production [needs {chance_ready_mats.txt()}]: {production_clauses}")
+    for pos, (recipe, folding_clause) in enumerate(folding_clauses.items()):
+        print(f"  {pos + 1}. {recipe} : {folding_clause}")
 
 
 def format_combinator_part(c: str, req: str):

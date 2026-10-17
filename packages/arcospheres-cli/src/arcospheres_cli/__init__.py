@@ -87,16 +87,15 @@ def rotate(target_recipes: list[Recipe], extras_count: int) -> None:
         )
         print_strategy(i, strategy)
         chance_ready = {n[1] for n in strategy if n[0] == "chance"}
-        order, built, chance_ready_clauses = print_combinators(
-            chance_ready_recipes, build_options(strategy), chance_ready
-        )
-        simulate_combinators(
-            chance_ready_recipes,
-            strategy,
-            order,
-            built,
-            chance_ready_clauses,
-        )
+        print_combinators(chance_ready_recipes, build_options(strategy), chance_ready)
+        # TODO: move into a test?
+        # simulate_combinators(
+        #     chance_ready_recipes,
+        #     strategy,
+        #     order,
+        #     built,
+        #     chance_ready_clauses,
+        # )
 
 
 def main():

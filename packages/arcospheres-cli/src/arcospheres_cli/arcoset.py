@@ -2,7 +2,7 @@ from collections import Counter
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class ArcoSet:
     _txt: str
 
@@ -21,28 +21,28 @@ class ArcoSet:
         return cls(canonical)
 
     def contains(self, req: "ArcoSet") -> bool:
-        for char, count in req._arcs().items():
-            if self._arcs().get(char, 0) < count:
+        for char, count in req.as_dict().items():
+            if self.as_dict().get(char, 0) < count:
                 return False
         return True
 
     def remove(self, req: "ArcoSet") -> "ArcoSet":
         if not self.contains(req):
             raise ValueError("insufficient contents")
-        new_arcs = self._arcs().copy()
-        for char, count in req._arcs().items():
+        new_arcs = self.as_dict().copy()
+        for char, count in req.as_dict().items():
             new_arcs[char] -= count
             if new_arcs[char] == 0:
                 del new_arcs[char]
         return self._from_arcs(new_arcs)
 
     def add(self, other: "ArcoSet") -> "ArcoSet":
-        new_arcs = self._arcs().copy()
-        for char, count in other._arcs().items():
+        new_arcs = self.as_dict().copy()
+        for char, count in other.as_dict().items():
             new_arcs[char] = new_arcs.get(char, 0) + count
         return self._from_arcs(new_arcs)
 
-    def _arcs(self) -> dict[str, int]:
+    def as_dict(self) -> dict[str, int]:
         return Counter(self._txt)
 
     def txt(self) -> str:

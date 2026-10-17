@@ -2,7 +2,7 @@ from .arcoset import ArcoSet
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Recipe:
     in_: ArcoSet
     out: ArcoSet
