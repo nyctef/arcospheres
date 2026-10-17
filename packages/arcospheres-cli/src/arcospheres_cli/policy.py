@@ -95,6 +95,7 @@ def build_policy(
             [
                 CombinatorClause(leftsignal=char, comparison="=", rightconstant=count)
                 for char, count in counts.items()
+                if count > 0
             ]
         )
 
