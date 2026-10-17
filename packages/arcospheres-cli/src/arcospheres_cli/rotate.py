@@ -1,4 +1,4 @@
-from itertools import combinations_with_replacement
+from itertools import combinations_with_replacement, product
 from .graphviz import print_strategy, print_graph
 from .policy import build_options, print_combinators
 from .simulate import simulate_combinators
@@ -14,12 +14,14 @@ def main():
     # state -> next state -> folding path or random output
     graph: Graph = {}
 
-    recipe_chance_1 = Recipe.from_str("LXEPZOTG -> EETTLLZZ", 20)
-    recipe_chance_2 = Recipe.from_str("LXEPZOTG -> EPOGPPZZ", 20)
+    outcomes = [
+        "".join(x)
+        for x in product(["ZT", "EP"], ["ZT", "OG"], ["LL", "PP"], ["EE", "ZZ"])
+    ]
     fold_limit = 500
-    extras_count = 1
+    extras_count = 2
 
-    chance_ready_recipes = [recipe_chance_1, recipe_chance_2]
+    chance_ready_recipes = [Recipe.from_str(f"LXEPZOTG -> {x}", 20) for x in outcomes]
     recipe_mats = get_common_input(chance_ready_recipes)
 
     # we're looking for cycles in the graph, and cycles we're interested in
@@ -34,7 +36,7 @@ def main():
         # since we're at a state where we want to try running a recipe, the
         # first step is to investigate the state that happens when we get
         # either output
-        for chance_recipe in (recipe_chance_1, recipe_chance_2):
+        for chance_recipe in chance_ready_recipes:
             label = chance_recipe.out.txt()
             after = chance_recipe.apply(start)
             # once we've run the production recipe, we then need to run a series
@@ -95,7 +97,7 @@ def main():
             chance_ready_recipes, build_options(strategy), chance_ready
         )
         simulate_combinators(
-            [recipe_chance_1, recipe_chance_2],
+            chance_ready_recipes,
             strategy,
             order,
             built,
