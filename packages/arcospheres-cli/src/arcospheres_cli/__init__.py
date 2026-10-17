@@ -1,7 +1,6 @@
 from itertools import combinations_with_replacement, product
 from .graphviz import print_strategy, print_graph
 from .policy import build_options, print_combinators
-from .simulate import simulate_combinators
 from .tarjan import tarjan_scc
 from .mdp import prune_mec, extract_strategy
 from .recipe import Recipe, get_common_input

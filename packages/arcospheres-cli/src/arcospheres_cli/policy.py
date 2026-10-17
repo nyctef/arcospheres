@@ -1,6 +1,5 @@
 from collections import Counter, defaultdict, deque
 from typing import Literal
-from itertools import combinations
 
 from attr import dataclass
 from .arco_types import Graph
