@@ -1,10 +1,10 @@
-from collections import Counter, defaultdict, deque
+from collections import defaultdict, deque
 from typing import Literal
 
 from attr import dataclass
 from .arco_types import Graph
 from .arcoset import ArcoSet
-from .recipe import RECIPES, Recipe, get_common_input
+from .recipe import RECIPES, Recipe
 
 
 def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:
@@ -102,12 +102,10 @@ def build_policy(
     return Or([to_and(st) for st in cube_ready])
 
 
-def print_combinators(
-    chance_ready_recipes: list[Recipe],
+def build_combinators(
     options: dict[ArcoSet, list[Recipe]],
     chance_ready: set[ArcoSet],
-):
-    chance_ready_mats = get_common_input(chance_ready_recipes)
+) -> tuple[Or, dict[Recipe, Or]]:
 
     options_per_recipe: dict[Recipe, list[ArcoSet]] = defaultdict(list)
     for ars, recipes in options.items():
@@ -121,6 +119,13 @@ def print_combinators(
     folding_clauses: dict[Recipe, Or] = {
         r: build_policy(options_per_recipe[r]) for r in options_per_recipe
     }
-    print(f"  0. Production [needs {chance_ready_mats.txt()}]: {production_clauses}")
+
+    return (production_clauses, folding_clauses)
+
+
+def print_combinators(
+    production_clauses: Or, folding_clauses: dict[Recipe, Or]
+) -> None:
+    print(f"  0. Production: {production_clauses}")
     for pos, (recipe, folding_clause) in enumerate(folding_clauses.items()):
         print(f"  {pos + 1}. {recipe} : {folding_clause}")

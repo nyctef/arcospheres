@@ -1,6 +1,6 @@
 from itertools import combinations_with_replacement, product
 from .graphviz import print_strategy, print_graph
-from .policy import build_options, print_combinators
+from .policy import build_options, build_combinators, print_combinators
 from .tarjan import tarjan_scc
 from .mdp import prune_mec, extract_strategy
 from .recipe import Recipe, get_common_input
@@ -86,7 +86,10 @@ def rotate(target_recipes: list[Recipe], extras_count: int) -> None:
         )
         print_strategy(i, strategy)
         chance_ready = {n[1] for n in strategy if n[0] == "chance"}
-        print_combinators(chance_ready_recipes, build_options(strategy), chance_ready)
+        production_clauses, folding_clauses = build_combinators(
+            build_options(strategy), chance_ready
+        )
+        print_combinators(production_clauses, folding_clauses)
         # TODO: move into a test?
         # simulate_combinators(
         #     chance_ready_recipes,
