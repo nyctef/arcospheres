@@ -17,7 +17,8 @@ def print_graph(graph: Graph, filename: str = "graph_output.txt"):
     out_file.parent.mkdir(exist_ok=True)
 
     def name(n: WorldState) -> str:
-        return f"{n[0][0]}:{n[1].txt()}"
+        prefix = "chance" if n[0] == "chance" else "choice"
+        return f"{prefix}:{n[1].txt()}"
 
     with out_file.open("w") as f:
         f.write("digraph G {\n")
