@@ -1,4 +1,6 @@
 from itertools import combinations_with_replacement, product
+
+from .simulate import simulate_combinators
 from .blueprints import to_bp
 from .graphviz import print_strategy, print_graph
 from .policy import build_options, build_combinators
@@ -93,15 +95,11 @@ def rotate(target_recipes: list[Recipe], extras_count: int) -> None:
         production_combi = to_bp(folding_clauses)
         print(f"\n\n======\n{production_combi.to_string()}\n======\n\n")
 
-        # print_combinators(production_clauses, folding_clauses)
-        # TODO: move into a test?
-        # simulate_combinators(
-        #     chance_ready_recipes,
-        #     strategy,
-        #     order,
-        #     built,
-        #     chance_ready_clauses,
-        # )
+        simulate_combinators(
+            chance_ready_recipes,
+            strategy,
+            folding_clauses,
+        )
 
 
 def main():

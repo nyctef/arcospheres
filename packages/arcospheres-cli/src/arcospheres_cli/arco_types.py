@@ -16,27 +16,36 @@ PathLabel = Union[str, int]
 Graph = dict[WorldState, dict[WorldState, PathLabel]]
 
 
-@dataclass
+@dataclass(frozen=True)
 class CombinatorClause:
     leftsignal: str  # future: expand to union(signal, constant)
-    comparison: Literal["=", ">="]  # ...
+    comparison: Literal["="]  # ...
     rightconstant: int
 
     def __str__(self) -> str:
         return f"{self.leftsignal}{self.comparison}{self.rightconstant}"
 
+    def is_satisfied_by(self, ars: ArcoSet) -> bool:
+        return ars.as_dict().get(self.leftsignal, 0) == self.rightconstant
 
-@dataclass
+
+@dataclass(frozen=True)
 class And:
-    clauses: list[CombinatorClause]
+    clauses: tuple[CombinatorClause, ...]
 
     def __str__(self) -> str:
         return " AND ".join(str(c) for c in self.clauses)
 
+    def is_satisfied_by(self, ars: ArcoSet) -> bool:
+        return all(c.is_satisfied_by(ars) for c in self.clauses)
 
-@dataclass
+
+@dataclass(frozen=True)
 class Or:
-    clauses: list[And]
+    clauses: tuple[And, ...]
 
     def __str__(self) -> str:
         return " OR ".join(f"({a})" for a in self.clauses)
+
+    def is_satisfied_by(self, ars: ArcoSet) -> bool:
+        return any(a.is_satisfied_by(ars) for a in self.clauses)

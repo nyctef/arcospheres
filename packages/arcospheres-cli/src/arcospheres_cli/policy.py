@@ -63,14 +63,14 @@ def build_policy(
     def to_and(ars: ArcoSet) -> And:
         counts = ars.as_dict()
         return And(
-            [
+            tuple(
                 CombinatorClause(leftsignal=char, comparison="=", rightconstant=count)
                 for char, count in counts.items()
                 if count > 0
-            ]
+            )
         )
 
-    return Or([to_and(st) for st in cube_ready])
+    return Or(tuple(to_and(st) for st in cube_ready))
 
 
 def build_combinators(
