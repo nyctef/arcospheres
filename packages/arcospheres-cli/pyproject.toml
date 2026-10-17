@@ -6,7 +6,7 @@ requires-python = ">=3.15"
 dependencies = []
 
 [project.scripts]
-arco-rotate = "arcospheres_cli.rotate:main"
+arco-rotate = "arcospheres_cli:main"
 
 [build-system]
 requires = ["hatchling"]
