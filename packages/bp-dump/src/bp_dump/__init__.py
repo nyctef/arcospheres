@@ -1,5 +1,5 @@
 import sys
-from draftsman.blueprintable import Blueprint
+from draftsman.blueprintable import Blueprint  # pyright: ignore[reportMissingTypeStubs]
 
 
 def main() -> None:
