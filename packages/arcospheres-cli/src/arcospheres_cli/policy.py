@@ -124,14 +124,3 @@ def print_combinators(
     print(f"  0. Production [needs {chance_ready_mats.txt()}]: {production_clauses}")
     for pos, (recipe, folding_clause) in enumerate(folding_clauses.items()):
         print(f"  {pos + 1}. {recipe} : {folding_clause}")
-
-
-def format_combinator_part(c: str, req: str):
-    if not len(c):
-        return "(always)"
-
-    counts = Counter(c)
-    for ch in req:
-        if ch in c:
-            counts[ch] += 1
-    return f"({' AND '.join(f'{ch} >= {counts[ch]}' for ch in sorted(counts))})"
