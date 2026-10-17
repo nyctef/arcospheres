@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Literal, Union
 from .arcoset import ArcoSet
 
@@ -13,3 +14,29 @@ WorldState = tuple[StateType, ArcoSet]
 # folds/inversions to get to the next state
 PathLabel = Union[str, int]
 Graph = dict[WorldState, dict[WorldState, PathLabel]]
+
+
+@dataclass
+class CombinatorClause:
+    leftsignal: str  # future: expand to union(signal, constant)
+    comparison: Literal["=", ">="]  # ...
+    rightconstant: int
+
+    def __str__(self) -> str:
+        return f"{self.leftsignal}{self.comparison}{self.rightconstant}"
+
+
+@dataclass
+class And:
+    clauses: list[CombinatorClause]
+
+    def __str__(self) -> str:
+        return " AND ".join(str(c) for c in self.clauses)
+
+
+@dataclass
+class Or:
+    clauses: list[And]
+
+    def __str__(self) -> str:
+        return " OR ".join(f"({a})" for a in self.clauses)

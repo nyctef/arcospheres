@@ -1,6 +1,7 @@
 from itertools import combinations_with_replacement, product
+from .blueprints import to_bp
 from .graphviz import print_strategy, print_graph
-from .policy import build_options, build_combinators, print_combinators
+from .policy import build_options, build_combinators
 from .tarjan import tarjan_scc
 from .mdp import prune_mec, extract_strategy
 from .recipe import Recipe, get_common_input
@@ -86,10 +87,13 @@ def rotate(target_recipes: list[Recipe], extras_count: int) -> None:
         )
         print_strategy(i, strategy)
         chance_ready = {n[1] for n in strategy if n[0] == "chance"}
-        production_clauses, folding_clauses = build_combinators(
-            build_options(strategy), chance_ready
+        folding_clauses = build_combinators(
+            chance_ready_recipes[0], build_options(strategy), chance_ready
         )
-        print_combinators(production_clauses, folding_clauses)
+        production_combi = to_bp(folding_clauses)
+        print(f"\n\n======\n{production_combi.to_string()}\n======\n\n")
+
+        # print_combinators(production_clauses, folding_clauses)
         # TODO: move into a test?
         # simulate_combinators(
         #     chance_ready_recipes,
@@ -106,6 +110,8 @@ def main():
         for x in product(["ZT", "EP"], ["ZT", "OG"], ["LL", "PP"], ["EE", "ZZ"])
     ]
 
-    target_recipes = [Recipe.from_str(f"LXEPZOTG -> {x}", 20) for x in outcomes]
+    target_recipes = [
+        Recipe.from_str(f"LXEPZOTG -> {x}", 20, "signal-check") for x in outcomes
+    ]
     extras_count = 2
     rotate(target_recipes, extras_count)

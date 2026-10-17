@@ -1,8 +1,5 @@
 from collections import defaultdict, deque
-from typing import Literal
-
-from attr import dataclass
-from .arco_types import Graph
+from .arco_types import Graph, CombinatorClause, And, Or
 from .arcoset import ArcoSet
 from .recipe import RECIPES, Recipe
 
@@ -59,32 +56,6 @@ def build_options(strategy: Graph) -> dict[ArcoSet, list[Recipe]]:
 Clause = tuple[str, int]  # (extras text, bitmask of states it matches)
 
 
-@dataclass
-class CombinatorClause:
-    leftsignal: str  # future: expand to union(signal, constant)
-    comparison: Literal["=", ">="]  # ...
-    rightconstant: int
-
-    def __str__(self) -> str:
-        return f"{self.leftsignal}{self.comparison}{self.rightconstant}"
-
-
-@dataclass
-class And:
-    clauses: list[CombinatorClause]
-
-    def __str__(self) -> str:
-        return " AND ".join(str(c) for c in self.clauses)
-
-
-@dataclass
-class Or:
-    clauses: list[And]
-
-    def __str__(self) -> str:
-        return " OR ".join(f"({a})" for a in self.clauses)
-
-
 def build_policy(
     cube_ready: list[ArcoSet],
 ) -> Or:
@@ -103,9 +74,10 @@ def build_policy(
 
 
 def build_combinators(
+    production_recipe: Recipe,
     options: dict[ArcoSet, list[Recipe]],
     chance_ready: set[ArcoSet],
-) -> tuple[Or, dict[Recipe, Or]]:
+) -> dict[Recipe, Or]:
 
     options_per_recipe: dict[Recipe, list[ArcoSet]] = defaultdict(list)
     for ars, recipes in options.items():
@@ -116,11 +88,12 @@ def build_combinators(
         options_per_recipe[recipes[0]].append(ars)
 
     production_clauses = build_policy(list(sorted(chance_ready)))
-    folding_clauses: dict[Recipe, Or] = {
+    result: dict[Recipe, Or] = {
         r: build_policy(options_per_recipe[r]) for r in options_per_recipe
     }
+    result[production_recipe] = production_clauses
 
-    return (production_clauses, folding_clauses)
+    return result
 
 
 def print_combinators(

@@ -29,3 +29,9 @@ E T -> O P | se-arcosphere-fold-e
 L X E P -> Z T G O | se-arcosphere-fold-out
 Z T G O -> L X E P | se-arcosphere-fold-in
 ```
+
+`factorio-draftsman` (for generating BPs) requires this step after (re)installing:
+
+```bash
+uv run draftsman --game-path "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data" --mods-path "$HOME/AppData/Roaming/Factorio/mods" update
+```
