@@ -29,15 +29,28 @@
     document.body.appendChild(renderer.domElement);
 
     const mapdata = {{ mapdata|tojson }};
-    console.log(mapdata);
+    // console.log(mapdata);
 
     for (const star of mapdata.stars) {
-      const geometry = new THREE.SphereGeometry(0.01, 4, 4);
+      const geometry = new THREE.SphereGeometry(0.02, 6, 4);
       const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
       const sphere = new THREE.Mesh(geometry, material);
       sphere.position.set(star.x, star.y, star.z);
       scene.add(sphere);
     }
+
+    const gate = {x: 0.34209017978238, y: -0.68402658695964, z: -0.64426852882071};
+    const gateGeometry = new THREE.SphereGeometry(0.05, 6, 4);
+    const gateSphere = new THREE.Mesh(gateGeometry, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    gateSphere.position.set(gate.x, gate.y, gate.z);
+    scene.add(gateSphere);
+
+    const xaxis = new THREE.BoxGeometry(2, 0.01, 0.01);
+    scene.add(new THREE.Mesh(xaxis, new THREE.MeshBasicMaterial({ color: 0x770000 })));
+    const yaxis = new THREE.BoxGeometry(0.01, 2, 0.01);
+    scene.add(new THREE.Mesh(yaxis, new THREE.MeshBasicMaterial({ color: 0x007700 })));
+    const zaxis = new THREE.BoxGeometry(0.01, 0.01, 2);
+    scene.add(new THREE.Mesh(zaxis, new THREE.MeshBasicMaterial({ color: 0x0000aa })));
 
     // const geometry = new THREE.BoxGeometry(1,1,1);
     // const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
