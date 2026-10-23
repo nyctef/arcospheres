@@ -28,10 +28,21 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const geometry = new THREE.BoxGeometry(1,1,1);
-    const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+    const mapdata = {{ mapdata|tojson }};
+    console.log(mapdata);
+
+    for (const star of mapdata.stars) {
+      const geometry = new THREE.SphereGeometry(0.01, 4, 4);
+      const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+      const sphere = new THREE.Mesh(geometry, material);
+      sphere.position.set(star.x, star.y, star.z);
+      scene.add(sphere);
+    }
+
+    // const geometry = new THREE.BoxGeometry(1,1,1);
+    // const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+    // const cube = new THREE.Mesh(geometry, material);
+    // scene.add(cube);
 
     camera.position.z = 5;
 
@@ -41,7 +52,6 @@
     function animate(time) {
         controls.update();
         renderer.render(scene, camera);
-
     }
     renderer.setAnimationLoop(animate);
   </script>
