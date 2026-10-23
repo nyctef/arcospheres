@@ -1,7 +1,48 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-    <head><title>map</title></head>
-    <body>
-        <p>hello</p>
-    </body>
+  <head>
+    <title>map</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body></body>
+  <script type="module">
+    import * as THREE from "three";
+    import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+
+    // console.log(THREE);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+      75, // fov
+      window.innerWidth / window.innerHeight, // aspect ratio
+      0.1, // near clip
+      1000, // far clip
+    );
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const geometry = new THREE.BoxGeometry(1,1,1);
+    const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
+
+    camera.position.z = 5;
+
+    const controls = new TrackballControls(camera, renderer.domElement);
+    controls.rotateSpeed = 2.0;
+
+    function animate(time) {
+        controls.update();
+        renderer.render(scene, camera);
+
+    }
+    renderer.setAnimationLoop(animate);
+  </script>
 </html>
