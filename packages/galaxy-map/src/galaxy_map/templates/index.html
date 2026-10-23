@@ -67,7 +67,7 @@
     /*
 
     dolly zoom: imagine a camera pointing horizontally at a centered object of height H.
-    The goal is to keep H constant on screen while moving the camera closer or further away.
+
                                     ⠄   ⠂   ⠁ | ↑
                         ⠄   ⠂   ⠁             |
             ⠄  ⠂   ⠁                          |
@@ -79,6 +79,10 @@
     This setup makes a right-angled triangle with an opposite side of H/2 and an adjacent side of d.
 
     The angle of the triangle (fov/2) is given by tan(fov/2) = (H/2) / d
+
+    the general idea of the below code is to keep H constant (so the object stays the same
+    size on screen) while changing d, and then using the above equation to figure out the
+    correct fov value as a result.
 
     */
 
