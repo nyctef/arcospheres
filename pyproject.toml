@@ -10,7 +10,12 @@ dependencies = []
 package = false
 
 [tool.uv.workspace]
-members = ["packages/arcospheres-cli", "packages/bp-dump"]
+members = [
+    "packages/arcospheres-cli",
+    "packages/bp-dump",
+    "galaxy-map",
+    "packages/galaxy-map",
+]
 
 
 [tool.uv.config-settings-package]
