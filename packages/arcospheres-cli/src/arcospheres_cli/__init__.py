@@ -102,7 +102,7 @@ def rotate(target_recipes: list[Recipe], extras_count: int) -> None:
         )
 
 
-def main():
+def main_deep_space_sci_3():
     outcomes = [
         "".join(x)
         for x in product(["ZT", "EP"], ["ZT", "OG"], ["LL", "PP"], ["EE", "ZZ"])
@@ -112,4 +112,22 @@ def main():
         Recipe.from_str(f"LXEPZOTG -> {x}", 20, "signal-check") for x in outcomes
     ]
     extras_count = 2
+    rotate(target_recipes, extras_count)
+
+
+def main_naq_processors():
+
+    target_recipes = [
+        Recipe.from_str(f"ZTEPGO -> LXLLLL", 30, "se-naquium-processor"),
+        Recipe.from_str(f"ZTEPGO -> LXXXXX", 30, "se-naquium-processor"),
+    ]
+    extras_count = 2
+    rotate(target_recipes, extras_count)
+
+
+def main_ds4_research():
+    target_recipes = [
+        Recipe.from_str(f"LZEG -> XTPO", 10, "se-wormhole-data"),
+    ]
+    extras_count = 1
     rotate(target_recipes, extras_count)

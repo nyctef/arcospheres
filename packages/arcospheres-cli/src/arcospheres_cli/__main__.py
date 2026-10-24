@@ -1,3 +1,3 @@
-from . import main
+from . import main_naq_processors, main_ds4_research
 
-main()
+main_ds4_research()
