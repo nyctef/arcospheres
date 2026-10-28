@@ -10,8 +10,28 @@
         }
       }
     </script>
+    <style>
+
+
+  #tooltip {
+    position: fixed;
+    left: 0;
+    top: 0;
+    pointer-events: none;   /* never steal mouse events from the canvas */
+    padding: 2px 6px;
+    font: bold 14px/1.4 Arial, Helvetica, sans-serif;
+    color: #fff;
+    background: #000;
+    border: 2px solid #fff;
+    white-space: nowrap;
+    display: none;  /* shown only while hovering a named object */
+    z-index: 10;
+  }
+</style>
   </head>
-  <body></body>
+  <body>
+    <div id="tooltip"></div>
+  </body>
   <script type="module">
     import * as THREE from "three";
     import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
@@ -35,6 +55,7 @@
       const geometry = new THREE.SphereGeometry(0.02, 6, 4);
       const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
       const sphere = new THREE.Mesh(geometry, material);
+      sphere.name = star.name;
       sphere.position.set(star.x, star.y, star.z);
       scene.add(sphere);
     }
@@ -42,6 +63,7 @@
     const gate = {x: 0.34209017978238, y: -0.68402658695964, z: -0.64426852882071};
     const gateGeometry = new THREE.SphereGeometry(0.05, 6, 4);
     const gateSphere = new THREE.Mesh(gateGeometry, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    gateSphere.name = "gate";
     gateSphere.position.set(gate.x, gate.y, gate.z);
     scene.add(gateSphere);
 
@@ -63,6 +85,49 @@
     controls.rotateSpeed = 2.0;
     // we're setting up our own zoom to switch between perspective and orthographic cameras
     controls.noZoom = true;
+
+    /* hover/tooltip
+      
+      1. when the mouse moves, we save the mouse position in both pixel coordinates
+         (to move the tooltip element to the right location)
+         and in normalized device coordinates (to use with the raycaster).
+
+         we skip actually doing the raycast in the mouse handler since it only needs
+         to happen once per frame
+
+      2. in animate(), we run the raycaster via checkTooltip() to check if the mouse hits any objects,
+         
+    */
+  
+    const tooltip = document.getElementById('tooltip');
+    const raycaster = new THREE.Raycaster();
+
+    const mouse = new THREE.Vector2(); // in normalized device coordinates (-1 to +1)
+    
+	  renderer.domElement.addEventListener('mousemove', (event) => {
+      tooltip.style.transform =
+        `translate(${event.clientX + 12}px, ${event.clientY - 32}px)`;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
+      mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
+    });
+
+    function checkTooltip() {
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(scene.children);
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        if (object.name) {
+          tooltip.style.display = 'block';
+          tooltip.textContent = object.name;
+          return;
+        }
+      }
+      
+      // else hide the tooltip
+      tooltip.style.display = 'none';
+    }
 
     /*
 
@@ -127,6 +192,7 @@
     function animate(time) {
         applyProjection(perspective_amount);
         controls.update();
+        checkTooltip();
         renderer.render(scene, camera);
     }
     renderer.setAnimationLoop(animate);

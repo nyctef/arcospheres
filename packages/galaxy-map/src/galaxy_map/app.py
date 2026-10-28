@@ -14,7 +14,7 @@ def load_map_data(path: Path) -> dict:
             if not line or not line.strip():
                 continue
             match = re.match(
-                r"!\[\[(.+)\]\] at coordinates \\\[SV ([0-9.-]+), ([0-9.-]+), ([0-9.-]+)\]",
+                r"!\[\[se-(.+)\.png\]\] at coordinates \\\[SV ([0-9.-]+), ([0-9.-]+), ([0-9.-]+)\]",
                 line,
             )
             if not match:
