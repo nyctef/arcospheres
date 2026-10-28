@@ -11,15 +11,16 @@
       }
     </script>
     <style>
-
-
   #tooltip {
     position: fixed;
     left: 0;
     top: 0;
     pointer-events: none;   /* never steal mouse events from the canvas */
     padding: 2px 6px;
-    font: bold 14px/1.4 Arial, Helvetica, sans-serif;
+        font:
+          bold 14px/1.4 Arial,
+          Helvetica,
+          sans-serif;
     color: #fff;
     background: #000;
     border: 2px solid #fff;
@@ -27,7 +28,7 @@
     display: none;  /* shown only while hovering a named object */
     z-index: 10;
   }
-</style>
+    </style>
   </head>
   <body>
     <div id="tooltip"></div>
@@ -49,7 +50,7 @@
     document.body.appendChild(renderer.domElement);
 
     const mapdata = {{ mapdata|tojson }};
-    // console.log(mapdata);
+     console.log(mapdata);
 
     for (const star of mapdata.stars) {
       const geometry = new THREE.SphereGeometry(0.02, 6, 4);
@@ -59,6 +60,23 @@
       sphere.position.set(star.x, star.y, star.z);
       scene.add(sphere);
     }
+
+     for (const line of mapdata.lines) {
+       const sourceStar = mapdata.stars.find(star => star.name === line.source);
+       const targetStar = mapdata.stars.find(star => star.name === line.target);
+       if (sourceStar && targetStar) {
+         const geometry = new THREE.BufferGeometry().setFromPoints([
+           new THREE.Vector3(sourceStar.x, sourceStar.y, sourceStar.z),
+           new THREE.Vector3(targetStar.x, targetStar.y, targetStar.z)
+         ]);
+         const material = new THREE.LineBasicMaterial({ color: 0xffffff });
+         const connection = new THREE.Line(geometry, material);
+         scene.add(connection);
+       }
+       else {
+         console.log(`skipping line from ${line.source} to ${line.target}`);
+       }
+     }
 
     const gate = {x: 0.34209017978238, y: -0.68402658695964, z: -0.64426852882071};
     const gateGeometry = new THREE.SphereGeometry(0.05, 6, 4);
@@ -117,11 +135,13 @@
     function checkTooltip() {
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(scene.children);
-      if (intersects.length > 0) {
-        const object = intersects[0].object;
-        if (object.name) {
+       for (const intersect of intersects) {
+        if (intersect.type == "Line") {
+          continue;
+        }
+         if (intersect.object.name) {
           tooltip.style.display = 'block';
-          tooltip.textContent = object.name;
+           tooltip.textContent = intersect.object.name;
           return;
         }
       }

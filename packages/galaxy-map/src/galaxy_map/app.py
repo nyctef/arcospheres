@@ -9,20 +9,24 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 def load_map_data(path: Path) -> dict:
     stars = []
+    lines = []
     with path.open("r") as f:
         for line in f:
             if not line or not line.strip():
                 continue
-            match = re.match(
+            if match := re.match(
                 r"!\[\[se-(.+)\.png\]\] at coordinates \\\[SV ([0-9.-]+), ([0-9.-]+), ([0-9.-]+)\]",
                 line,
-            )
-            if not match:
+            ):
+                name, x, y, z = match.groups()
+                x, y, z = map(float, (x, y, z))
+                stars.append({"name": name, "x": x, "y": y, "z": z})
+            elif match := re.match(r"([a-z0-9-]+) -- ([a-z0-9-]+)", line):
+                source, target = match.groups()
+                lines.append({"source": source, "target": target})
+            else:
                 raise ValueError(f"Line does not match expected format: {line}")
-            name, x, y, z = match.groups()
-            x, y, z = map(float, (x, y, z))
-            stars.append({"name": name, "x": x, "y": y, "z": z})
-    return {"stars": stars}
+    return {"stars": stars, "lines": lines}
 
 
 if len(sys.argv) < 2:
