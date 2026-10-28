@@ -11,55 +11,55 @@
       }
     </script>
     <style>
-  #tooltip {
-    position: fixed;
-    left: 0;
-    top: 0;
-    pointer-events: none;   /* never steal mouse events from the canvas */
-    padding: 2px 6px;
+      #tooltip {
+        position: fixed;
+        left: 0;
+        top: 0;
+        pointer-events: none; /* never steal mouse events from the canvas */
+        padding: 2px 6px;
         font:
           bold 14px/1.4 Arial,
           Helvetica,
           sans-serif;
-    color: #fff;
-    background: #000;
-    border: 2px solid #fff;
-    white-space: nowrap;
-    display: none;  /* shown only while hovering a named object */
-    z-index: 10;
-  }
+        color: #fff;
+        background: #000;
+        border: 2px solid #fff;
+        white-space: nowrap;
+        display: none; /* shown only while hovering a named object */
+        z-index: 10;
+      }
     </style>
   </head>
   <body>
     <div id="tooltip"></div>
   </body>
   <script type="module">
-    import * as THREE from "three";
-    import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+     import * as THREE from "three";
+     import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
-    // console.log(THREE);
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      75, // fov
-      window.innerWidth / window.innerHeight, // aspect ratio
-      0.1, // near clip
-      99999999, // far clip
-    );
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+     // console.log(THREE);
+     const scene = new THREE.Scene();
+     const camera = new THREE.PerspectiveCamera(
+       75, // fov
+       window.innerWidth / window.innerHeight, // aspect ratio
+       0.1, // near clip
+       99999999, // far clip
+     );
+     const renderer = new THREE.WebGLRenderer();
+     renderer.setSize(window.innerWidth, window.innerHeight);
+     document.body.appendChild(renderer.domElement);
 
-    const mapdata = {{ mapdata|tojson }};
+     const mapdata = {{ mapdata|tojson }};
      console.log(mapdata);
 
-    for (const star of mapdata.stars) {
-      const geometry = new THREE.SphereGeometry(0.02, 6, 4);
-      const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-      const sphere = new THREE.Mesh(geometry, material);
-      sphere.name = star.name;
-      sphere.position.set(star.x, star.y, star.z);
-      scene.add(sphere);
-    }
+     for (const star of mapdata.stars) {
+       const geometry = new THREE.SphereGeometry(0.02, 6, 4);
+       const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+       const sphere = new THREE.Mesh(geometry, material);
+       sphere.name = star.name;
+       sphere.position.set(star.x, star.y, star.z);
+       scene.add(sphere);
+     }
 
      for (const line of mapdata.lines) {
        const sourceStar = mapdata.stars.find(star => star.name === line.source);
@@ -78,144 +78,144 @@
        }
      }
 
-    const gate = {x: 0.34209017978238, y: -0.68402658695964, z: -0.64426852882071};
-    const gateGeometry = new THREE.SphereGeometry(0.05, 6, 4);
-    const gateSphere = new THREE.Mesh(gateGeometry, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    gateSphere.name = "gate";
-    gateSphere.position.set(gate.x, gate.y, gate.z);
-    scene.add(gateSphere);
+     const gate = {x: 0.34209017978238, y: -0.68402658695964, z: -0.64426852882071};
+     const gateGeometry = new THREE.SphereGeometry(0.05, 6, 4);
+     const gateSphere = new THREE.Mesh(gateGeometry, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+     gateSphere.name = "gate";
+     gateSphere.position.set(gate.x, gate.y, gate.z);
+     scene.add(gateSphere);
 
-    const xaxis = new THREE.BoxGeometry(2, 0.01, 0.01);
-    scene.add(new THREE.Mesh(xaxis, new THREE.MeshBasicMaterial({ color: 0x770000 })));
-    const yaxis = new THREE.BoxGeometry(0.01, 2, 0.01);
-    scene.add(new THREE.Mesh(yaxis, new THREE.MeshBasicMaterial({ color: 0x007700 })));
-    const zaxis = new THREE.BoxGeometry(0.01, 0.01, 2);
-    scene.add(new THREE.Mesh(zaxis, new THREE.MeshBasicMaterial({ color: 0x0000aa })));
+     const xaxis = new THREE.BoxGeometry(2, 0.01, 0.01);
+     scene.add(new THREE.Mesh(xaxis, new THREE.MeshBasicMaterial({ color: 0x770000 })));
+     const yaxis = new THREE.BoxGeometry(0.01, 2, 0.01);
+     scene.add(new THREE.Mesh(yaxis, new THREE.MeshBasicMaterial({ color: 0x007700 })));
+     const zaxis = new THREE.BoxGeometry(0.01, 0.01, 2);
+     scene.add(new THREE.Mesh(zaxis, new THREE.MeshBasicMaterial({ color: 0x0000aa })));
 
-    // const geometry = new THREE.BoxGeometry(1,1,1);
-    // const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
-    // const cube = new THREE.Mesh(geometry, material);
-    // scene.add(cube);
+     // const geometry = new THREE.BoxGeometry(1,1,1);
+     // const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+     // const cube = new THREE.Mesh(geometry, material);
+     // scene.add(cube);
 
-    camera.position.z = 1.5;
+     camera.position.z = 1.5;
 
-    const controls = new TrackballControls(camera, renderer.domElement);
-    controls.rotateSpeed = 2.0;
-    // we're setting up our own zoom to switch between perspective and orthographic cameras
-    controls.noZoom = true;
+     const controls = new TrackballControls(camera, renderer.domElement);
+     controls.rotateSpeed = 2.0;
+     // we're setting up our own zoom to switch between perspective and orthographic cameras
+     controls.noZoom = true;
 
-    /* hover/tooltip
-      
-      1. when the mouse moves, we save the mouse position in both pixel coordinates
-         (to move the tooltip element to the right location)
-         and in normalized device coordinates (to use with the raycaster).
+     /* hover/tooltip
 
-         we skip actually doing the raycast in the mouse handler since it only needs
-         to happen once per frame
+       1. when the mouse moves, we save the mouse position in both pixel coordinates
+          (to move the tooltip element to the right location)
+          and in normalized device coordinates (to use with the raycaster).
 
-      2. in animate(), we run the raycaster via checkTooltip() to check if the mouse
-         hits any objects and update the tooltip accordingly.
-         
-    */
-  
-    const tooltip = document.getElementById('tooltip');
-    const raycaster = new THREE.Raycaster();
+          we skip actually doing the raycast in the mouse handler since it only needs
+          to happen once per frame
 
-    const mouse = new THREE.Vector2(); // in normalized device coordinates (-1 to +1)
-    
-	  renderer.domElement.addEventListener('mousemove', (event) => {
-      tooltip.style.transform =
-        `translate(${event.clientX + 12}px, ${event.clientY - 32}px)`;
+       2. in animate(), we run the raycaster via checkTooltip() to check if the mouse
+          hits any objects and update the tooltip accordingly.
 
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
-      mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
-    });
+     */
 
-    function checkTooltip() {
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(scene.children);
+     const tooltip = document.getElementById('tooltip');
+     const raycaster = new THREE.Raycaster();
+
+     const mouse = new THREE.Vector2(); // in normalized device coordinates (-1 to +1)
+
+    renderer.domElement.addEventListener('mousemove', (event) => {
+       tooltip.style.transform =
+         `translate(${event.clientX + 12}px, ${event.clientY - 32}px)`;
+
+       const rect = renderer.domElement.getBoundingClientRect();
+       mouse.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
+       mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
+     });
+
+     function checkTooltip() {
+       raycaster.setFromCamera(mouse, camera);
+       const intersects = raycaster.intersectObjects(scene.children);
        for (const intersect of intersects) {
         if (intersect.type == "Line") {
           continue;
         }
          if (intersect.object.name) {
-          tooltip.style.display = 'block';
+           tooltip.style.display = 'block';
            tooltip.textContent = intersect.object.name;
-          return;
-        }
-      }
-      
-      // else hide the tooltip
-      tooltip.style.display = 'none';
-    }
+           return;
+         }
+       }
 
-    /*
+       // else hide the tooltip
+       tooltip.style.display = 'none';
+     }
 
-    dolly zoom: imagine a camera pointing horizontally at a centered object of height H.
+     /*
 
-                                    ⠄   ⠂   ⠁ | ↑
-                        ⠄   ⠂   ⠁             |
-            ⠄  ⠂   ⠁                          |
-    camera ....................................| H
-                    ←  d  →                    |
-                                               |
-                                               | ↓
+     dolly zoom: imagine a camera pointing horizontally at a centered object of height H.
 
-    This setup makes a right-angled triangle with an opposite side of H/2 and an adjacent side of d.
+                                     ⠄   ⠂   ⠁ | ↑
+                         ⠄   ⠂   ⠁             |
+             ⠄  ⠂   ⠁                          |
+     camera ....................................| H
+                     ←  d  →                    |
+                                                |
+                                                | ↓
 
-    The angle of the triangle (fov/2) is given by tan(fov/2) = (H/2) / d
+     This setup makes a right-angled triangle with an opposite side of H/2 and an adjacent side of d.
 
-    the general idea of the below code is to keep H constant (so the object stays the same
-    size on screen) while changing d, and then using the above equation to figure out the
-    correct fov value as a result.
+     The angle of the triangle (fov/2) is given by tan(fov/2) = (H/2) / d
 
-    */
+     the general idea of the below code is to keep H constant (so the object stays the same
+     size on screen) while changing d, and then using the above equation to figure out the
+     correct fov value as a result.
 
-    // FOV in degrees. technically a FOV_MIN of 0.5 is still a perspective camera,
-    // but it's close enough that the difference shouldn't be noticable and actually switching
-    // to THREE.OrthographicCamera would be a lot more fiddly.
-    const FOV_MAX = 100, FOV_MIN = 0.5;
-    // fov is nonlinear (changes near zero are much more noticable than changes near 90)
-    // so we interpolate on the tangent instead.
-    const tanMax = Math.tan(THREE.MathUtils.degToRad(FOV_MAX / 2));
-    const tanMin = Math.tan(THREE.MathUtils.degToRad(FOV_MIN / 2));
+     */
 
-    // const sceneSize = 1.5; // all points are in [-1, 1] so this gives us a little extra screen space
-    const basePan = controls.panSpeed;
-    const H = 2 * camera.position.distanceTo(controls.target) * tanMax;
+     // FOV in degrees. technically a FOV_MIN of 0.5 is still a perspective camera,
+     // but it's close enough that the difference shouldn't be noticable and actually switching
+     // to THREE.OrthographicCamera would be a lot more fiddly.
+     const FOV_MAX = 100, FOV_MIN = 0.5;
+     // fov is nonlinear (changes near zero are much more noticable than changes near 90)
+     // so we interpolate on the tangent instead.
+     const tanMax = Math.tan(THREE.MathUtils.degToRad(FOV_MAX / 2));
+     const tanMin = Math.tan(THREE.MathUtils.degToRad(FOV_MIN / 2));
 
-    let perspective_amount = 0.75;
+     // const sceneSize = 1.5; // all points are in [-1, 1] so this gives us a little extra screen space
+     const basePan = controls.panSpeed;
+     const H = 2 * camera.position.distanceTo(controls.target) * tanMax;
 
-    function applyProjection(perspective_amount) {
-        // rearrange the above tan equation to figure out how far away to put the camera
-        const tanHalf = THREE.MathUtils.lerp(tanMin, tanMax, perspective_amount);
-        const camera_dist = (H / 2) / tanHalf;
+     let perspective_amount = 0.75;
 
-        const dir = camera.position.clone().sub(controls.target).normalize();
-        camera.position.copy(controls.target).addScaledVector(dir, camera_dist);
+     function applyProjection(perspective_amount) {
+         // rearrange the above tan equation to figure out how far away to put the camera
+         const tanHalf = THREE.MathUtils.lerp(tanMin, tanMax, perspective_amount);
+         const camera_dist = (H / 2) / tanHalf;
 
-        // and then adjust the camera FOV to match
-        camera.fov = 2 * THREE.MathUtils.radToDeg(Math.atan(tanHalf));
-        camera.updateProjectionMatrix();
+         const dir = camera.position.clone().sub(controls.target).normalize();
+         camera.position.copy(controls.target).addScaledVector(dir, camera_dist);
 
-        controls.panSpeed = basePan * tanHalf / tanMax;
-    }
+         // and then adjust the camera FOV to match
+         camera.fov = 2 * THREE.MathUtils.radToDeg(Math.atan(tanHalf));
+         camera.updateProjectionMatrix();
 
-    renderer.domElement.addEventListener('wheel', (e) => {
-        // since we disabled the zoom on the built-in controls, this mousewheel handler shouldn't fight with them
-        e.preventDefault();
+         controls.panSpeed = basePan * tanHalf / tanMax;
+     }
 
-        // scroll down to zoom out (more orthographic), scroll up to zoom in (more perspective)
-        perspective_amount = THREE.MathUtils.clamp(perspective_amount - e.deltaY * 0.001, 0, 1);
-    }, { passive: false });
+     renderer.domElement.addEventListener('wheel', (e) => {
+         // since we disabled the zoom on the built-in controls, this mousewheel handler shouldn't fight with them
+         e.preventDefault();
 
-    function animate(time) {
-        applyProjection(perspective_amount);
-        controls.update();
-        checkTooltip();
-        renderer.render(scene, camera);
-    }
-    renderer.setAnimationLoop(animate);
+         // scroll down to zoom out (more orthographic), scroll up to zoom in (more perspective)
+         perspective_amount = THREE.MathUtils.clamp(perspective_amount - e.deltaY * 0.001, 0, 1);
+     }, { passive: false });
+
+     function animate(time) {
+         applyProjection(perspective_amount);
+         controls.update();
+         checkTooltip();
+         renderer.render(scene, camera);
+     }
+     renderer.setAnimationLoop(animate);
   </script>
 </html>
