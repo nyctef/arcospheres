@@ -15,6 +15,7 @@ members = [
     "packages/bp-dump",
     "galaxy-map",
     "packages/galaxy-map",
+    "packages/check-star-data",
 ]
 
 
