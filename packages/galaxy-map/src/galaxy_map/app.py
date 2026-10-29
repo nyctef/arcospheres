@@ -1,6 +1,6 @@
 from pathlib import Path
-import re
 import sys
+import yaml
 from flask import Flask, render_template
 
 app = Flask(__name__, instance_relative_config=True)
@@ -8,24 +8,27 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 
 def load_map_data(path: Path) -> dict:
-    stars = []
-    lines = []
     with path.open("r") as f:
-        for line in f:
-            if not line or not line.strip():
-                continue
-            if match := re.match(
-                r"!\[\[se-(.+)\.png\]\] at coordinates \\\[SV ([0-9.-]+), ([0-9.-]+), ([0-9.-]+)\]",
-                line,
-            ):
-                name, x, y, z = match.groups()
-                x, y, z = map(float, (x, y, z))
-                stars.append({"name": name, "x": x, "y": y, "z": z})
-            elif match := re.match(r"([a-z0-9-]+) -- ([a-z0-9-]+)", line):
-                source, target = match.groups()
-                lines.append({"source": source, "target": target})
-            else:
-                raise ValueError(f"Line does not match expected format: {line}")
+        data = yaml.safe_load(f)
+
+    entries: dict[str, dict] = {}
+    for entry in data:
+        for name, details in entry.items():
+            entries[str(name)] = details
+
+    stars = []
+    for name, details in entries.items():
+        if coords := details.get("coords"):
+            x, y, z = map(float, coords)
+            stars.append({"name": name, "x": x, "y": y, "z": z})
+
+    # draw a line between two entries when each lists the other as one of its parts
+    lines = []
+    for name, details in entries.items():
+        for part in map(str, details.get("parts", [])):
+            if name < part and name in map(str, entries.get(part, {}).get("parts", [])):
+                lines.append({"source": name, "target": part})
+
     return {"stars": stars, "lines": lines}
 
 
