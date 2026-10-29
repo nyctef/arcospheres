@@ -7,7 +7,9 @@ authors = [
     { name = "Nyctef", email = "nyctef@nyctef.com" }
 ]
 requires-python = ">=3.15"
-dependencies = []
+dependencies = [
+    "pyyaml>=6.0.3",
+]
 
 [project.scripts]
 check-star-data = "check_star_data:main"
